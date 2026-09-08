@@ -12,7 +12,7 @@ function makeCard(id: string, theme: ThemeId, overrides: Partial<StudyCard> = {}
     theme,
     question: `Question ${id}`,
     answer: `Réponse ${id}`,
-    unverified: true,
+    source: { title: `Article ${id}`, url: `https://fr.wikipedia.org/wiki/${id}` },
   }
   return {
     content,

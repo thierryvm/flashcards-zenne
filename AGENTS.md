@@ -43,9 +43,19 @@ Turn it on once the deck is large enough for review pile-ups to be real.
 **Sessions interleave themes.** `buildQueue` round-robins across themes rather
 than draining one at a time. Blocked practice feels easier and retains worse.
 
-**Seed cards carry `unverified: true`.** They were written offline with no
-source to check against, and spaced repetition engraves whatever it drills. The
-flag is shown in the UI and only a human or a sourced import should clear it.
+**Every card must carry a source.** `CardContent.source` is required, so the
+rule lives in the compiler rather than in a review checklist: a card with no
+reference does not compile. The 48 article titles were validated against the
+MediaWiki API (`action=query&redirects=1`).
+
+The honest limit, worth repeating because it is easy to overclaim: a source
+makes a card **verifiable**, it does not prove the answer. That is a different
+order of guarantee from an unchecked claim, not an absolute one.
+
+`culture-generale.test.ts` also guards the copy. A previous sourced import
+arrived with its apostrophes flattened into spaces ("L ete d une annee"), which
+reads as broken French in a French-language product; a test now fails on lone
+elided articles. It catches flattened apostrophes, not missing accents.
 
 **Everything is local.** No account, no server, no personal data leaves the
 device. That is also why v0 needed no privacy review to ship. Sync and accounts
