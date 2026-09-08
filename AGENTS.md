@@ -43,6 +43,21 @@ Turn it on once the deck is large enough for review pile-ups to be real.
 **Sessions interleave themes.** `buildQueue` round-robins across themes rather
 than draining one at a time. Blocked practice feels easier and retains worse.
 
+**Hints are a ladder, not a single cue** (`domain/hints.ts`). Framing says what
+kind of answer is expected, the authored cue narrows it, the skeleton shows its
+shape with initials kept. Only the middle rung is written per card; the other
+two are derived, so new cards get all three for free. A single cue only helps a
+learner who almost knows — the framing rung is what an unfamiliar learner needs
+first.
+
+**Elaboration is shown back.** The learner's own "pourquoi ?" note reappears on
+the next review of that card. Storing it without ever surfacing it again would
+be the appearance of elaborative interrogation without its mechanism.
+
+**Leaving a session is always possible.** Each graded card is persisted as it is
+answered, so quitting early loses nothing. Never build a flow that traps the
+learner until a counter runs out.
+
 **Every card must carry a source.** `CardContent.source` is required, so the
 rule lives in the compiler rather than in a review checklist: a card with no
 reference does not compile. The 48 article titles were validated against the

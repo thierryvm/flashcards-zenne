@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GRADES, GRADE_LABELS, type ReviewGrade } from '../domain/scheduler'
+import { availableHintLevels, hintFor, HINT_LABELS, type HintLevel } from '../domain/hints'
 import { THEME_LABELS, type StudyCard } from '../domain/types'
 
 export interface StudyViewProps {
   queue: readonly StudyCard[]
   onReview: (card: StudyCard, grade: ReviewGrade, note?: string) => void
   onFinish: () => void
+  onExit: () => void
 }
 
 const BUTTON =
@@ -14,24 +16,29 @@ const BUTTON =
 
 const PRIMARY = 'min-h-11 px-5 py-2 rounded-lg bg-accent text-accent-text font-semibold'
 
-export function StudyView({ queue, onReview, onFinish }: StudyViewProps) {
+export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps) {
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
-  const [hintShown, setHintShown] = useState(false)
+  const [openHints, setOpenHints] = useState<HintLevel[]>([])
   const [note, setNote] = useState('')
   const ratingRef = useRef<HTMLDivElement>(null)
-  const noteRef = useRef<HTMLTextAreaElement>(null)
 
   const card = queue[index]
+  const levels = card ? availableHintLevels(card.content) : []
+  const nextLevel = levels[openHints.length]
 
   const reveal = useCallback(() => setRevealed(true), [])
+
+  const openNextHint = useCallback(() => {
+    if (nextLevel) setOpenHints((current) => [...current, nextLevel])
+  }, [nextLevel])
 
   const grade = useCallback(
     (value: ReviewGrade) => {
       if (!card) return
       onReview(card, value, note.trim() || undefined)
       setRevealed(false)
-      setHintShown(false)
+      setOpenHints([])
       setNote('')
       if (index + 1 >= queue.length) onFinish()
       else setIndex(index + 1)
@@ -40,7 +47,7 @@ export function StudyView({ queue, onReview, onFinish }: StudyViewProps) {
   )
 
   // Keyboard shortcuts: space or enter to reveal, 1-4 to grade. Typing a note
-  // must never be captured, so the note field is excluded explicitly.
+  // must never be captured, so text fields are excluded explicitly.
   useEffect(() => {
     function handle(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null
@@ -71,33 +78,53 @@ export function StudyView({ queue, onReview, onFinish }: StudyViewProps) {
 
   if (!card) return null
 
+  const previousNote = card.progress.note
+
   return (
     <section aria-labelledby="question-heading" className="mx-auto w-full max-w-2xl px-4 py-6">
-      <p aria-live="polite" className="text-muted text-sm">
-        Carte {index + 1} sur {queue.length} — {THEME_LABELS[card.content.theme]}
-      </p>
+      <div className="flex items-baseline justify-between gap-3">
+        <p aria-live="polite" className="text-muted text-sm">
+          Carte {index + 1} sur {queue.length} — {THEME_LABELS[card.content.theme]}
+        </p>
+        {/* Leaving mid-session must always be possible: every graded card is
+            already saved, so nothing is lost by stopping early. */}
+        <button type="button" onClick={onExit} className="text-muted min-h-11 text-sm underline">
+          Quitter la séance
+        </button>
+      </div>
 
-      <h2 id="question-heading" className="mt-4 text-2xl font-semibold text-balance">
+      <h2 id="question-heading" className="mt-2 text-2xl font-semibold text-balance">
         {card.content.question}
       </h2>
+
+      {openHints.length > 0 && (
+        <ul className="mt-4 space-y-2">
+          {openHints.map((level) => (
+            <li key={level} className="rounded-lg border border-border bg-raised p-3">
+              <p className="text-muted text-sm">{HINT_LABELS[level]}</p>
+              <p className={level === 'skeleton' ? 'font-mono text-lg tracking-wide' : ''}>
+                {hintFor(card.content, level)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {!revealed && (
         <div className="mt-6 flex flex-wrap gap-3">
           <button type="button" className={PRIMARY} onClick={reveal}>
             Afficher la réponse
           </button>
-          {card.content.hint && !hintShown && (
-            <button type="button" className={BUTTON} onClick={() => setHintShown(true)}>
-              Un indice
+          {nextLevel && (
+            <button type="button" className={BUTTON} onClick={openNextHint}>
+              {openHints.length === 0 ? 'Aidez-moi' : 'Un indice de plus'}
+              <span className="text-muted text-sm">
+                {' '}
+                ({openHints.length + 1}/{levels.length})
+              </span>
             </button>
           )}
         </div>
-      )}
-
-      {hintShown && card.content.hint && (
-        <p className="mt-4 rounded-lg border border-border bg-raised p-3">
-          <strong>Indice.</strong> {card.content.hint}
-        </p>
       )}
 
       {revealed && (
@@ -108,7 +135,7 @@ export function StudyView({ queue, onReview, onFinish }: StudyViewProps) {
           </p>
 
           {card.content.elaboration && (
-            <p className="mt-3 text-muted">{card.content.elaboration}</p>
+            <p className="text-muted mt-3">{card.content.elaboration}</p>
           )}
 
           {/*
@@ -127,21 +154,34 @@ export function StudyView({ queue, onReview, onFinish }: StudyViewProps) {
             </a>
           </p>
 
+          {/*
+            Elaborative interrogation only works if the learner's own
+            explanation comes back to them. Storing it and never showing it
+            again would be the appearance of the method without its mechanism.
+          */}
+          {previousNote && (
+            <div className="border-accent mt-5 rounded-lg border-l-4 bg-raised p-3">
+              <p className="text-muted text-sm">Votre explication, la dernière fois</p>
+              <p className="mt-1">{previousNote}</p>
+            </div>
+          )}
+
           <div className="mt-5">
             <label htmlFor="note" className="block font-medium">
               Pourquoi&nbsp;? <span className="text-muted font-normal">(facultatif)</span>
             </label>
             <p id="note-help" className="text-muted text-sm">
-              Formuler l&apos;explication avec vos mots ancre la carte plus solidement.
+              Expliquez la réponse avec vos mots. Elle vous sera reproposée à la prochaine révision
+              de cette carte.
             </p>
             <textarea
               id="note"
-              ref={noteRef}
               aria-describedby="note-help"
               value={note}
               onChange={(event) => setNote(event.target.value)}
               rows={2}
-              className="mt-2 w-full rounded-lg border border-border bg-surface p-2"
+              placeholder={previousNote ? 'Reformuler ou compléter…' : undefined}
+              className="border-border bg-surface mt-2 w-full rounded-lg border p-2"
             />
           </div>
 

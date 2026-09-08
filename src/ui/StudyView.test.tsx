@@ -27,8 +27,11 @@ function makeCard(id: string, theme: ThemeId = 'histoire'): StudyCard {
 function setup(cards: StudyCard[] = [makeCard('a'), makeCard('b', 'sciences')]) {
   const onReview = vi.fn()
   const onFinish = vi.fn()
-  const view = render(<StudyView queue={cards} onReview={onReview} onFinish={onFinish} />)
-  return { onReview, onFinish, ...view }
+  const onExit = vi.fn()
+  const view = render(
+    <StudyView queue={cards} onReview={onReview} onFinish={onFinish} onExit={onExit} />,
+  )
+  return { onReview, onFinish, onExit, ...view }
 }
 
 describe('StudyView', () => {
@@ -72,14 +75,80 @@ describe('StudyView', () => {
     expect(screen.getByText('Contexte a')).toBeInTheDocument()
   })
 
-  it('offers a hint that narrows the answer without giving it', async () => {
+  it('opens help one rung at a time, starting with what is being asked', async () => {
     const user = userEvent.setup()
     setup()
 
-    await user.click(screen.getByRole('button', { name: 'Un indice' }))
+    await user.click(screen.getByRole('button', { name: /Aidez-moi/ }))
+
+    expect(screen.getByText('De quoi parle-t-on ?')).toBeInTheDocument()
+    expect(screen.queryByText(/Indice a/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Réponse a')).not.toBeInTheDocument()
+  })
+
+  it('reaches the authored cue on the second rung', async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(screen.getByRole('button', { name: /Aidez-moi/ }))
+    await user.click(screen.getByRole('button', { name: /Un indice de plus/ }))
 
     expect(screen.getByText(/Indice a/)).toBeInTheDocument()
     expect(screen.queryByText('Réponse a')).not.toBeInTheDocument()
+  })
+
+  it('ends with the shape of the answer, without revealing it', async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(screen.getByRole('button', { name: /Aidez-moi/ }))
+    await user.click(screen.getByRole('button', { name: /Un indice de plus/ }))
+    await user.click(screen.getByRole('button', { name: /Un indice de plus/ }))
+
+    expect(screen.getByText('La forme de la réponse')).toBeInTheDocument()
+    expect(screen.getByText('R······ a')).toBeInTheDocument()
+    expect(screen.queryByText('Réponse a')).not.toBeInTheDocument()
+  })
+
+  it('stops offering help once every rung is open', async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(screen.getByRole('button', { name: /Aidez-moi/ }))
+    await user.click(screen.getByRole('button', { name: /Un indice de plus/ }))
+    await user.click(screen.getByRole('button', { name: /Un indice de plus/ }))
+
+    expect(screen.queryByRole('button', { name: /indice de plus/ })).not.toBeInTheDocument()
+  })
+
+  it('lets the learner leave the session at any point', async () => {
+    const user = userEvent.setup()
+    const { onExit } = setup()
+
+    await user.click(screen.getByRole('button', { name: 'Quitter la séance' }))
+
+    expect(onExit).toHaveBeenCalledOnce()
+  })
+
+  it('shows the learner their own previous explanation', async () => {
+    const user = userEvent.setup()
+    const card = makeCard('a')
+    card.progress.note = 'Parce que la forteresse était un symbole royal.'
+    setup([card])
+
+    await user.click(screen.getByRole('button', { name: 'Afficher la réponse' }))
+
+    expect(screen.getByText(/Votre explication, la dernière fois/)).toBeInTheDocument()
+    expect(screen.getByText(/symbole royal/)).toBeInTheDocument()
+  })
+
+  it('does not invent a previous explanation when there is none', async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(screen.getByRole('button', { name: 'Afficher la réponse' }))
+
+    expect(screen.queryByText(/Votre explication/)).not.toBeInTheDocument()
   })
 
   it('reveals with the space bar', async () => {

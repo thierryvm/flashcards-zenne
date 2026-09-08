@@ -13,10 +13,16 @@ repère, c'est un point fixe qui sert à s'orienter.
 - **Rappel actif.** La réponse reste cachée jusqu'à ce que vous ayez cherché.
 - **Thèmes entrelacés.** Une séance mélange histoire, sciences et arts plutôt
   que d'enchaîner un thème entier. C'est moins confortable, et ça retient mieux.
-- **Un indice plutôt qu'un échec.** Un bouton donne un amorçage partiel, qui
-  restreint la recherche sans livrer la réponse.
+- **Une aide graduée, pas un seul indice.** Trois niveaux, ouverts un par un et
+  seulement si vous le demandez : d'abord _de quoi on parle_, puis l'indice
+  rédigé, enfin la _forme_ de la réponse (`A····· W······`). Un indice unique
+  ne sert qu'à celui qui sait déjà presque ; c'est le premier niveau qui
+  manquait.
 - **« Pourquoi ? »** Après la réponse, un champ libre pour reformuler avec vos
-  mots. Un fait relié à quelque chose tient mieux qu'un fait isolé.
+  mots — et votre explication vous est **réaffichée à la révision suivante**.
+  Un fait relié à quelque chose tient mieux qu'un fait isolé.
+- **Un tableau de bord.** Progression par thème, rétention estimée, et la charge
+  des sept prochains jours.
 - **Séances courtes, à fin visible.** Douze cartes maximum, aucun chronomètre,
   aucune série à ne pas briser.
 
