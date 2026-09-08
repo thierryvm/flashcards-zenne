@@ -1,0 +1,68 @@
+@import 'tailwindcss';
+
+/*
+ * Values mirror src/ui/tokens.ts, which is the source of truth and carries the
+ * contrast tests. Changing a colour here without changing it there fails CI.
+ */
+@theme {
+  --color-surface: #ffffff;
+  --color-raised: #f2f5f9;
+  --color-text: #111b25;
+  --color-muted: #4c5c6d;
+  --color-accent: #14509e;
+  --color-accent-text: #ffffff;
+  --color-border: #6b7b8c;
+  --color-danger: #a3161d;
+  --color-ok: #106c3c;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-surface: #0b0f14;
+    --color-raised: #161f29;
+    --color-text: #e9eff6;
+    --color-muted: #a9bacb;
+    --color-accent: #7fb0ff;
+    --color-accent-text: #06203f;
+    --color-border: #6d8296;
+    --color-danger: #ff9d9d;
+    --color-ok: #7ee0a8;
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  /* Comfortable default for readers who tire quickly. */
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+/* A focus ring that survives every background in the palette. */
+:where(a, button, input, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
