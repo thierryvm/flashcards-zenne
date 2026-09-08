@@ -6,6 +6,8 @@ export const THEMES = [
   'sciences',
   'arts',
   'litterature',
+  'idees',
+  'techniques',
   'institutions',
 ] as const
 
@@ -18,7 +20,21 @@ export const THEME_LABELS: Record<ThemeId, string> = {
   sciences: 'Sciences',
   arts: 'Arts',
   litterature: 'Littérature',
+  idees: 'Idées',
+  techniques: 'Techniques',
   institutions: 'Institutions',
+}
+
+/**
+ * Reference article a learner can open to check the card.
+ *
+ * A source makes a card *verifiable*, which is not the same as proving it. It
+ * is a different order of guarantee from an unchecked claim, not an absolute
+ * one.
+ */
+export interface CardSource {
+  title: string
+  url: string
 }
 
 export interface CardContent {
@@ -37,10 +53,12 @@ export interface CardContent {
    */
   elaboration?: string
   /**
-   * True until a human has checked the fact against a source. Surfaced in the
-   * UI: a spaced-repetition app that drills an error engraves it.
+   * Mandatory. The product rule is that no card ships without a reference the
+   * learner can open: a spaced-repetition app drills whatever it is given, so
+   * an unfalsifiable card is a liability. Making the field required puts that
+   * rule in the compiler rather than in a review checklist.
    */
-  unverified: boolean
+  source: CardSource
 }
 
 export interface CardProgress {

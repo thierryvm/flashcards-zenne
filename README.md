@@ -25,13 +25,19 @@ repère, c'est un point fixe qui sert à s'orienter.
 Tout reste sur votre appareil, dans le stockage local du navigateur. Pas de
 compte, pas de serveur, aucune donnée envoyée nulle part.
 
-## Les cartes ne sont pas encore vérifiées
+## Chaque carte porte sa source
 
-Le paquet initial a été rédigé hors ligne, sans source à confronter. Chaque
-carte porte la mention « non vérifiée » tant qu'un humain ne l'a pas relue.
+Les 48 cartes renvoient à l'article de référence qui permet de les vérifier en
+un clic. Le lien apparaît après la réponse, jamais avant. Aucune carte ne peut
+être ajoutée sans source : le champ est obligatoire, et le code ne compile pas
+sans lui.
 
 Ce n'est pas de la prudence de façade : une application de répétition espacée
 grave ce qu'elle répète. Une carte fausse est pire qu'une carte absente.
+
+**La limite, dite franchement** : une source rend une carte _vérifiable_, elle
+ne la prouve pas. C'est une garantie d'un autre ordre qu'une affirmation sans
+référence, pas une garantie absolue.
 
 ## Développement
 

@@ -81,13 +81,6 @@ export function StudyView({ queue, onReview, onFinish }: StudyViewProps) {
         {card.content.question}
       </h2>
 
-      {card.content.unverified && (
-        <p className="mt-3 text-sm text-muted">
-          <span aria-hidden="true">⚠ </span>
-          Fiche non vérifiée : son contenu n&apos;a pas encore été relu par un humain.
-        </p>
-      )}
-
       {!revealed && (
         <div className="mt-6 flex flex-wrap gap-3">
           <button type="button" className={PRIMARY} onClick={reveal}>
@@ -117,6 +110,22 @@ export function StudyView({ queue, onReview, onFinish }: StudyViewProps) {
           {card.content.elaboration && (
             <p className="mt-3 text-muted">{card.content.elaboration}</p>
           )}
+
+          {/*
+            The source is what makes a card checkable rather than merely
+            asserted. It sits after the answer so it never leaks the response.
+          */}
+          <p className="mt-3 text-sm">
+            <a
+              href={card.content.source.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent underline underline-offset-2"
+            >
+              Vérifier&nbsp;: {card.content.source.title}
+              <span className="text-muted"> (nouvel onglet)</span>
+            </a>
+          </p>
 
           <div className="mt-5">
             <label htmlFor="note" className="block font-medium">

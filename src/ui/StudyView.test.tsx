@@ -18,7 +18,7 @@ function makeCard(id: string, theme: ThemeId = 'histoire'): StudyCard {
       answer: `Réponse ${id}`,
       hint: `Indice ${id}`,
       elaboration: `Contexte ${id}`,
-      unverified: true,
+      source: { title: `Article ${id}`, url: `https://fr.wikipedia.org/wiki/Article_${id}` },
     },
     progress: { cardId: id, fsrs: scheduler.create(NOW), updatedAt: NOW },
   }
@@ -45,10 +45,21 @@ describe('StudyView', () => {
     expect(screen.getByText(/Carte 1 sur 2/)).toBeInTheDocument()
   })
 
-  it('flags cards that no human has checked', () => {
+  it('keeps the source hidden until the answer is shown, so it cannot leak it', () => {
     setup()
 
-    expect(screen.getByText(/non vérifiée/)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Vérifier/ })).not.toBeInTheDocument()
+  })
+
+  it('offers the reference article once the answer is shown', async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(screen.getByRole('button', { name: 'Afficher la réponse' }))
+
+    const link = screen.getByRole('link', { name: /Vérifier/ })
+    expect(link).toHaveAttribute('href', 'https://fr.wikipedia.org/wiki/Article_a')
+    expect(link).toHaveAccessibleName(/nouvel onglet/)
   })
 
   it('reveals the answer on demand', async () => {
