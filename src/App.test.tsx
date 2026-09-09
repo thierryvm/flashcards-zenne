@@ -2,7 +2,9 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import type { CardContent } from './domain/types'
+import { buildQueue, DEFAULT_SESSION_LIMIT } from './domain/queue'
+import { SEED_PARAMETER } from './domain/seed'
+import type { CardContent, ThemeId } from './domain/types'
 
 const CARD: CardContent = {
   id: 'test-card',
@@ -28,6 +30,7 @@ beforeEach(() => {
   loadStudyCards.mockReset()
   saveProgress.mockReset()
   saveProgress.mockResolvedValue(undefined)
+  window.history.replaceState({}, '', '/')
 })
 
 function loadWith(cards: unknown[]) {
@@ -53,6 +56,26 @@ function studyCard(scheduleAt = new Date('2026-01-01T09:00:00Z')) {
       updatedAt: scheduleAt,
     },
   }
+}
+
+/** A deck wide enough that the shuffle has something to shuffle. */
+function manyCards() {
+  const themes: ThemeId[] = ['histoire', 'geographie', 'sciences', 'arts']
+  return themes.flatMap((theme, position) =>
+    [0, 1, 2].map((offset) => {
+      const id = `${theme}-${offset}`
+      return {
+        ...studyCard(),
+        content: {
+          ...CARD,
+          id,
+          theme,
+          question: `Question ${position * 3 + offset} ?`,
+        },
+        progress: { ...studyCard().progress, cardId: id },
+      }
+    }),
+  )
 }
 
 describe('App storage failures', () => {
@@ -127,5 +150,65 @@ describe('App navigation', () => {
 
     await screen.findByRole('button', { name: /Commencer une séance/ })
     expect(screen.queryByRole('button', { name: 'Tableau de bord' })).not.toBeInTheDocument()
+  })
+})
+
+/*
+ * Sessions are seeded with the clock, so two screenshots of the study screen
+ * never show the same card and cannot be compared. `?graine=<n>` pins the seed
+ * for the run.
+ */
+describe('App pinned seed', () => {
+  async function firstQuestionWith(search: string) {
+    const user = userEvent.setup()
+    window.history.replaceState({}, '', search)
+    loadWith(manyCards())
+
+    const view = render(<App />)
+    await user.click(await screen.findByRole('button', { name: /Commencer une séance/ }))
+    const heading = screen.getByRole('heading', { level: 2 }).textContent
+    view.unmount()
+    return heading
+  }
+
+  it('builds the session with the seed from the address bar', async () => {
+    const expected = buildQueue(manyCards(), { limit: DEFAULT_SESSION_LIMIT, seed: 42 })[0]
+
+    expect(await firstQuestionWith(`/?${SEED_PARAMETER}=42`)).toBe(expected.content.question)
+  })
+
+  it('gives the same session twice for the same seed', async () => {
+    const once = await firstQuestionWith(`/?${SEED_PARAMETER}=42`)
+    const twice = await firstQuestionWith(`/?${SEED_PARAMETER}=42`)
+
+    expect(twice).toBe(once)
+  })
+
+  it('shows the pinned seed so a capture carries it', async () => {
+    window.history.replaceState({}, '', `/?${SEED_PARAMETER}=42`)
+    loadWith(manyCards())
+
+    render(<App />)
+
+    expect(await screen.findByText('graine 42')).toBeInTheDocument()
+  })
+
+  it('says nothing when no seed is pinned', async () => {
+    loadWith(manyCards())
+
+    render(<App />)
+
+    await screen.findByRole('button', { name: /Commencer une séance/ })
+    expect(screen.queryByText(/^graine /)).not.toBeInTheDocument()
+  })
+
+  it('ignores a seed it cannot read, visibly', async () => {
+    loadWith(manyCards())
+    window.history.replaceState({}, '', `/?${SEED_PARAMETER}=quarante-deux`)
+
+    render(<App />)
+
+    await screen.findByRole('button', { name: /Commencer une séance/ })
+    expect(screen.queryByText(/^graine /)).not.toBeInTheDocument()
   })
 })
