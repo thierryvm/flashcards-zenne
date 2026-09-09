@@ -15,6 +15,10 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Fonts are not in the default precache list, and this app is meant to
+      // work on a train. Only the latin subsets are built, so this is four
+      // files, not thirty-eight.
+      workbox: { globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'] },
       manifest: {
         name: 'Repères',
         short_name: 'Repères',
@@ -23,8 +27,10 @@ export default defineConfig({
         start_url: base,
         scope: base,
         display: 'standalone',
-        background_color: '#0b0f14',
-        theme_color: '#0b0f14',
+        // A manifest carries one colour and cannot answer to
+        // prefers-color-scheme, so it carries the default scheme: paper.
+        background_color: '#fbf9f5',
+        theme_color: '#fbf9f5',
       },
     }),
   ],

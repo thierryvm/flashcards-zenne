@@ -27,6 +27,21 @@ function dayDetail(day: UpcomingDay): string {
   return parts.join(', ')
 }
 
+/**
+ * A zero is worth showing and not worth shouting. On a fresh install the table
+ * is thirty-two of them, and at full weight they were the loudest thing on the
+ * first screen someone ever sees.
+ */
+function Count({ value }: { value: number }) {
+  return (
+    <td
+      className={`text-body py-3 pr-4 text-right tabular-nums ${value === 0 ? 'text-muted' : ''}`}
+    >
+      {value}
+    </td>
+  )
+}
+
 export function Dashboard({
   cards,
   scheduler,
@@ -40,34 +55,35 @@ export function Dashboard({
   const upcoming = upcomingReviews(cards, now, 7)
   const retention = averageRetention(cards, scheduler, now)
   const available = summary.dueNow + summary.unseen
-  const busiest = Math.max(1, ...upcoming.map((day) => day.total))
 
   return (
-    <section className="px-4 py-6">
-      <h2 className="text-2xl font-semibold">Votre progression</h2>
+    <section className="max-w-reading mx-auto px-5 py-8 sm:px-8">
+      <h2 className="font-serif text-question">Votre progression</h2>
 
-      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="border-border bg-raised rounded-lg border p-3">
-          <dt className="text-muted text-sm">À revoir</dt>
-          <dd className="text-2xl font-semibold">{summary.dueNow}</dd>
+      {/* Four figures on the paper. They were four bordered boxes, which made
+          the emptiest part of the screen look like the most structured one. */}
+      <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-4">
+        <div>
+          <dt className="text-muted text-label">À revoir</dt>
+          <dd className="font-serif text-answer tabular-nums">{summary.dueNow}</dd>
         </div>
-        <div className="border-border bg-raised rounded-lg border p-3">
-          <dt className="text-muted text-sm">Nouvelles</dt>
-          <dd className="text-2xl font-semibold">{summary.unseen}</dd>
+        <div>
+          <dt className="text-muted text-label">Nouvelles</dt>
+          <dd className="font-serif text-answer tabular-nums">{summary.unseen}</dd>
         </div>
-        <div className="border-border bg-raised rounded-lg border p-3">
-          <dt className="text-muted text-sm">Déjà vues</dt>
-          <dd className="text-2xl font-semibold">{summary.reviewed}</dd>
+        <div>
+          <dt className="text-muted text-label">Déjà vues</dt>
+          <dd className="font-serif text-answer tabular-nums">{summary.reviewed}</dd>
         </div>
-        <div className="border-border bg-raised rounded-lg border p-3">
-          <dt className="text-muted text-sm">Rétention</dt>
-          <dd className="text-2xl font-semibold">
+        <div>
+          <dt className="text-muted text-label">Rétention</dt>
+          <dd className="font-serif text-answer tabular-nums">
             {retention === null ? '—' : `${Math.round(retention.mean * 100)} %`}
           </dd>
           {/* A bare "100 %" after one easy card says nothing. The denominator
               is part of the figure, not a footnote. */}
           {retention !== null && (
-            <dd className="text-muted text-sm">
+            <dd className="text-muted text-note">
               sur {retention.sampleSize} carte{retention.sampleSize > 1 ? 's' : ''}
             </dd>
           )}
@@ -75,7 +91,7 @@ export function Dashboard({
       </dl>
 
       {retention === null && storageHealthy && (
-        <p className="text-muted mt-2 text-sm">
+        <p className="text-muted text-note mt-4">
           La rétention apparaîtra après votre première séance.
         </p>
       )}
@@ -84,11 +100,11 @@ export function Dashboard({
         type="button"
         onClick={onStart}
         disabled={available === 0}
-        className="bg-accent text-accent-text mt-5 min-h-11 rounded-lg px-5 py-2 font-semibold disabled:opacity-60"
+        className="bg-accent text-accent-text rounded-button text-label min-h-12 mt-8 border border-accent px-5 py-2 font-semibold disabled:opacity-60"
       >
         Commencer une séance
       </button>
-      <p className="text-muted mt-2 text-sm">
+      <p className="text-muted text-note mt-3">
         {available > 0
           ? `${Math.min(available, sessionLimit)} cartes, thèmes mélangés, sans chronomètre.`
           : storageHealthy
@@ -96,82 +112,77 @@ export function Dashboard({
             : 'Rien à afficher tant que le problème d’enregistrement n’est pas résolu.'}
       </p>
 
-      <h3 className="mt-8 text-xl font-semibold">Par thème</h3>
-      <table className="mt-3 w-full border-collapse text-left text-sm">
+      <h3 className="font-serif text-answer mt-12">Par thème</h3>
+      <table className="mt-4 w-full border-collapse text-left">
         <caption className="sr-only">
           Répartition des cartes par thème : acquises, en cours, à revoir, non vues
         </caption>
         <thead>
-          <tr className="text-muted">
-            <th scope="col" className="py-2 pr-2 font-medium">
+          <tr className="text-muted text-label">
+            <th scope="col" className="py-3 pr-4 font-semibold">
               Thème
             </th>
-            <th scope="col" className="py-2 pr-2 text-right font-medium">
+            <th scope="col" className="py-3 pr-4 text-right font-semibold">
               Acquises
             </th>
-            <th scope="col" className="py-2 pr-2 text-right font-medium">
+            <th scope="col" className="py-3 pr-4 text-right font-semibold">
               En cours
             </th>
-            <th scope="col" className="py-2 pr-2 text-right font-medium">
+            <th scope="col" className="py-3 pr-4 text-right font-semibold">
               À revoir
             </th>
-            <th scope="col" className="py-2 text-right font-medium">
+            <th scope="col" className="py-3 text-right font-semibold">
               Non vues
             </th>
           </tr>
         </thead>
         <tbody>
           {themes.map((row) => (
-            <tr key={row.theme} className="border-border border-t">
-              <th scope="row" className="py-2 pr-2 font-normal">
+            <tr key={row.theme} className="border-line border-t">
+              {/* The bar that used to sit here was a 155 px hairline, empty at
+                  0 %, and read as a failed underline rather than a gauge. */}
+              <th scope="row" className="text-body py-3 pr-4 font-normal">
                 {THEME_LABELS[row.theme]}
                 <span className="sr-only">
                   {' '}
                   : {percent(row.mastered, row.total)} % acquises sur {row.total} cartes
                 </span>
-                <div
-                  aria-hidden="true"
-                  className="border-border mt-1 h-1.5 w-full overflow-hidden rounded-full border"
-                >
-                  <div
-                    className="bg-accent h-full"
-                    style={{ width: `${percent(row.mastered, row.total)}%` }}
-                  />
-                </div>
               </th>
-              <td className="py-2 pr-2 text-right tabular-nums">{row.mastered}</td>
-              <td className="py-2 pr-2 text-right tabular-nums">{row.learning}</td>
-              <td className="py-2 pr-2 text-right tabular-nums">{row.dueNow}</td>
-              <td className="py-2 text-right tabular-nums">{row.unseen}</td>
+              <Count value={row.mastered} />
+              <Count value={row.learning} />
+              <Count value={row.dueNow} />
+              <td
+                className={`text-body py-3 text-right tabular-nums ${row.unseen === 0 ? 'text-muted' : ''}`}
+              >
+                {row.unseen}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <h3 className="mt-8 text-xl font-semibold">Les sept prochains jours</h3>
-      <p className="text-muted mt-1 text-sm">
+      <h3 className="font-serif text-answer mt-12">Les sept prochains jours</h3>
+      <p className="text-muted text-note mt-2">
         Ce que la répétition espacée vous réserve. Un jour vide est un jour gagné, pas un oubli.
       </p>
-      <ul className="mt-3 space-y-1">
+      <ul className="mt-4">
         {upcoming.map((day, offset) => {
           const detail = dayDetail(day)
           return (
-            <li key={day.date.toISOString()} className="flex items-center gap-3">
-              <span className="text-muted w-24 shrink-0 text-sm">
+            <li
+              key={day.date.toISOString()}
+              className="border-line flex flex-wrap items-baseline justify-between gap-x-4 border-t py-3"
+            >
+              <span className="text-body">
                 {offset === 0 ? "Aujourd'hui" : DAY_LABEL.format(day.date)}
               </span>
-              <span
-                aria-hidden="true"
-                className="bg-accent h-3 rounded-sm"
-                style={{ width: `${(day.total / busiest) * 100}%` }}
-              />
-              <span className="text-sm tabular-nums">
+              <span className="text-body tabular-nums">
                 {day.total}
                 <span className="sr-only"> carte{day.total > 1 ? 's' : ''}</span>
+                {/* Written once, so sighted and screen-reader users get the
+                    same breakdown rather than two copies that can drift. */}
+                {detail && <span className="text-muted text-note"> — {detail}</span>}
               </span>
-              {/* Written once, so sighted and screen-reader users get the same
-                  breakdown rather than two copies that can drift apart. */}
-              {detail && <span className="text-muted text-sm">({detail})</span>}
             </li>
           )
         })}

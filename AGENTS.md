@@ -44,11 +44,11 @@ Turn it on once the deck is large enough for review pile-ups to be real.
 than draining one at a time. Blocked practice feels easier and retains worse.
 
 **Hints are a ladder, not a single cue** (`domain/hints.ts`). Framing says what
-kind of answer is expected, the authored cue narrows it, the skeleton shows its
-shape with initials kept. Only the middle rung is written per card; the other
-two are derived, so new cards get all three for free. A single cue only helps a
-learner who almost knows — the framing rung is what an unfamiliar learner needs
-first.
+kind of answer is expected, the authored cue narrows it, the shape rung says how
+many words there are and what some of them start with. Only the middle rung is
+written per card; the other two are derived, so new cards get all three for free.
+A single cue only helps a learner who almost knows — the framing rung is what an
+unfamiliar learner needs first.
 
 **Elaboration is shown back.** The learner's own "pourquoi ?" note reappears on
 the next review of that card. Storing it without ever surfacing it again would
@@ -67,11 +67,17 @@ behaviour. Any global shortcut must bail out on `metaKey`, `ctrlKey`, `altKey`,
 on text fields, and on interactive elements. `StudyView.test.tsx` has the
 regression suite; it was checked against the old code and fails on it.
 
-**The skeleton rung must never approach the answer.** `skeletonFor` returns null
-rather than a hint that reveals more than `MAX_SKELETON_LEAK`, and the rung is
-then not offered. The leak ceiling and the "no whole word in the clear" property
-are asserted across the entire deck, not on a sample — an earlier version
-exempted small words and returned "Au" for "Au".
+**The shape rung must never approach the answer.** `shapeFor` returns null rather
+than a hint revealing more than `MAX_SHAPE_LEAK`, and the rung is then not
+offered. The ceiling is asserted across the entire deck, not on a sample — an
+earlier version exempted small words and returned "Au" for "Au".
+
+**The shape rung says its hint, it does not draw it.** It used to render
+`L'·········· ····` in a monospace face: on screen that reads as a broken field,
+it wrapped mid-answer, and a screen reader got a separate prose version, so one
+rung had two faces that could drift apart. There is one version now — the prose
+one — and everyone gets it. A shape that looks like a rendering fault does not
+improve by adjusting its letter-spacing.
 
 **A failure must never render as a healthy empty state.** If IndexedDB cannot be
 read or written, say so. An unreadable database once produced a serene dashboard
@@ -100,8 +106,21 @@ are a later phase and must be designed and approved before any code is written.
 ## Visual direction
 
 `DESIGN.md` has authority over visual choices and every deviation belongs in the
-PR that makes it. **The current interface does not conform to it yet** — palette,
-typography, spacing scale and the four grade buttons all predate the document.
+PR that makes it. Palette, typography, spacing scale, shapes and the four grade
+buttons now follow it. Three readings were needed where the document does not
+decide, and they are recorded here rather than left to be rediscovered:
+
+- **The grade intensities are 100 / 45 / 20 / outline**, not the literal
+  100 / 70 / 45. At 70 % of the dark accent no label colour clears 4.5:1 — 3.34
+  with the ink, 4.35 with the paper. The order and the meaning are the
+  document's; the numbers are what the contrast floor allows.
+- **`line` is the only token below 3:1 and it may only separate.** Anything a
+  person can operate — a button edge, a field border — is bounded by `accent` or
+  `muted`. A 1.29:1 rule around a text field would be a WCAG 1.4.11 failure.
+- **The fonts are self-hosted, not loaded from Google Fonts.** A third-party
+  stylesheet cannot be precached, so an offline-first app would lose its
+  typography exactly when it is most needed, and every page view would hand the
+  reader's IP address to Google. Only the latin subsets are built: four files.
 
 Its verification step — capture at 390×844 and 1280×800, in both colour
 schemes, and _look at the result_ — is not a formality. It is what found the

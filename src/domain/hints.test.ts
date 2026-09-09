@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   availableHintLevels,
   containsYear,
-  describeSkeleton,
   framingFor,
   hintFor,
   looksLikeProperName,
-  MAX_SKELETON_LEAK,
-  skeletonFor,
+  MAX_SHAPE_LEAK,
+  shapeFor,
+  shapeLeak,
 } from './hints'
 import { CULTURE_GENERALE } from '../content/culture-generale'
 import type { CardContent } from './types'
@@ -21,18 +21,6 @@ function card(overrides: Partial<CardContent> = {}): CardContent {
     source: { title: 'Article', url: 'https://fr.wikipedia.org/wiki/Article' },
     ...overrides,
   }
-}
-
-const ALPHANUMERIC = /[\p{L}\p{N}]/u
-
-function leakRatio(answer: string, skeleton: string): number {
-  const answerChars = [...answer]
-  const skeletonChars = [...skeleton]
-  const letters = answerChars.filter((character) => ALPHANUMERIC.test(character))
-  const revealed = answerChars.filter(
-    (character, index) => ALPHANUMERIC.test(character) && skeletonChars[index] === character,
-  )
-  return letters.length === 0 ? 0 : revealed.length / letters.length
 }
 
 describe('containsYear', () => {
@@ -101,105 +89,95 @@ describe('framingFor', () => {
   })
 })
 
-describe('skeletonFor', () => {
-  it('hides small words instead of handing them over', () => {
-    expect(skeletonFor(card({ answer: 'Le Sacre du printemps' }))).toBe('·· S···· ·· p········')
-  })
-
-  it('masks digits entirely rather than narrowing a year to its decade', () => {
-    expect(skeletonFor(card({ answer: 'Le 10 décembre 1948' }))).toBe('·· ·· d······· ····')
-  })
-
-  it('keeps apostrophes and hyphens so the shape stays readable', () => {
-    // An elided article and its noun form one token, so the revealed initial is
-    // the article's. The aggregate leak ceiling is what keeps that honest.
-    expect(skeletonFor(card({ answer: "L'imprimerie à caractères mobiles" }))).toBe(
-      "L'·········· · c········· m······",
+/*
+ * This rung used to render a masked string — "L'·········· ·" — in a monospace
+ * face. It read as a broken field rather than a hint, so it now says the same
+ * thing in words, which is what a screen reader was already getting. The
+ * disclosure is unchanged, and so is the ceiling on it.
+ */
+describe('shapeFor', () => {
+  it('counts every word, including the fully hidden ones', () => {
+    expect(shapeFor(card({ answer: 'Le 14 juillet 1789' }))).toBe(
+      '4 mots : 2 lettres, 2 lettres, 7 lettres commençant par j, 4 lettres.',
     )
   })
 
-  it('keeps hyphens visible but hides the second half of a compound', () => {
-    expect(skeletonFor(card({ answer: 'La Porte de Saint-Rémy' }))).toBe('·· P···· ·· S····-····')
+  it('hides small words instead of handing them over', () => {
+    expect(shapeFor(card({ answer: 'Le Sacre du printemps' }))).toBe(
+      '4 mots : 2 lettres, 5 lettres commençant par S, 2 lettres, 9 lettres commençant par p.',
+    )
   })
 
-  it('refuses a skeleton for an answer too short to hide anything', () => {
-    expect(skeletonFor(card({ answer: 'Au' }))).toBeNull()
-    expect(skeletonFor(card({ answer: 'En 1917' }))).toBeNull()
+  it('never gives a digit away, which would narrow a year to its decade', () => {
+    const shape = shapeFor(card({ answer: 'Le 10 décembre 1948' }))
+
+    expect(shape).not.toMatch(/commençant par \d/)
+  })
+
+  it('speaks of a single word in the singular', () => {
+    expect(shapeFor(card({ answer: 'photosynthèse' }))).toBe(
+      'Un seul mot : 13 lettres commençant par p.',
+    )
+  })
+
+  it('refuses a shape for an answer too short to hide anything', () => {
+    expect(shapeFor(card({ answer: 'Au' }))).toBeNull()
+    expect(shapeFor(card({ answer: 'En 1917' }))).toBeNull()
   })
 
   /*
-   * The previous version exempted small words from masking, so "Au" came back
-   * as "Au" and "Le Sahara" as "Le S·····" — the answer, for anyone who had
-   * read the question. These two properties are checked across the real deck
-   * rather than on one favourable example.
+   * An earlier version exempted small words from masking, so "Au" came back as
+   * "Au" and "Le Sahara" as "Le S·····" — the answer, for anyone who had read
+   * the question. These properties are checked across the real deck rather than
+   * on one favourable example.
    */
-  it('never returns any deck answer unchanged', () => {
+  it('keeps every deck card under the leak ceiling', () => {
     for (const deckCard of CULTURE_GENERALE) {
-      const skeleton = skeletonFor(deckCard)
-      if (skeleton === null) continue
-      expect(skeleton, `${deckCard.id} leaked its answer verbatim`).not.toBe(deckCard.answer)
-    }
-  })
-
-  it('keeps every deck skeleton under the leak ceiling', () => {
-    for (const deckCard of CULTURE_GENERALE) {
-      const skeleton = skeletonFor(deckCard)
-      if (skeleton === null) continue
-      const ratio = leakRatio(deckCard.answer, skeleton)
+      if (shapeFor(deckCard) === null) continue
+      const leak = shapeLeak(deckCard.answer) ?? 0
       expect(
-        ratio,
-        `${deckCard.id} reveals ${Math.round(ratio * 100)}% of its answer`,
-      ).toBeLessThanOrEqual(MAX_SKELETON_LEAK)
+        leak,
+        `${deckCard.id} reveals ${Math.round(leak * 100)}% of its answer`,
+      ).toBeLessThanOrEqual(MAX_SHAPE_LEAK)
     }
   })
 
-  it('never reveals a whole word of any deck answer', () => {
+  /*
+   * An initial is half of a two-letter word and all of a one-letter word, which
+   * is how "Au" once came back as "Au". Asserting on the prose is what proves
+   * the rule survived the rewrite; comparing whole words would not, since the
+   * sentence legitimately contains French vocabulary of its own.
+   */
+  it('never announces an initial for a word too short to spare one', () => {
     for (const deckCard of CULTURE_GENERALE) {
-      const skeleton = skeletonFor(deckCard)
-      if (skeleton === null) continue
-      const answerWords = deckCard.answer.match(/[\p{L}\p{N}]{2,}/gu) ?? []
-      const skeletonWords = new Set(skeleton.match(/[\p{L}\p{N}]{2,}/gu) ?? [])
-      for (const word of answerWords) {
-        expect(skeletonWords.has(word), `${deckCard.id} left "${word}" in the clear`).toBe(false)
-      }
+      const shape = shapeFor(deckCard)
+      if (shape === null) continue
+      expect(shape, `${deckCard.id} gave away a short word`).not.toMatch(
+        /\b[12] lettres? commençant/,
+      )
     }
   })
-})
 
-describe('describeSkeleton', () => {
-  it('counts every word, including the fully masked ones', () => {
-    expect(describeSkeleton(card({ answer: 'Le 14 juillet 1789' }))).toBe(
-      '4 mots : 2 lettres ; 2 lettres ; 7 lettres, commence par j ; 4 lettres.',
-    )
-  })
-
-  it('says nothing when there is no skeleton to describe', () => {
-    expect(describeSkeleton(card({ answer: 'Au' }))).toBeNull()
-  })
-
-  it('describes every deck card that offers a skeleton', () => {
+  it('describes every deck card that offers the rung', () => {
     for (const deckCard of CULTURE_GENERALE) {
-      if (skeletonFor(deckCard) === null) continue
-      expect(describeSkeleton(deckCard), `${deckCard.id} has no spoken form`).toMatch(/^\d+ mots?/)
+      if (!availableHintLevels(deckCard).includes('shape')) continue
+      expect(shapeFor(deckCard), `${deckCard.id} has no shape`).toMatch(/^(\d+ mots|Un seul mot)/)
     }
   })
 })
 
 describe('availableHintLevels', () => {
-  it('offers all three rungs when the card has a cue and a safe skeleton', () => {
+  it('offers all three rungs when the card has a cue and a safe shape', () => {
     expect(
       availableHintLevels(card({ answer: 'Dmitri Mendeleïev', hint: 'Un chimiste.' })),
-    ).toEqual(['framing', 'cue', 'skeleton'])
+    ).toEqual(['framing', 'cue', 'shape'])
   })
 
   it('drops the cue rung when the card has none', () => {
-    expect(availableHintLevels(card({ answer: 'Dmitri Mendeleïev' }))).toEqual([
-      'framing',
-      'skeleton',
-    ])
+    expect(availableHintLevels(card({ answer: 'Dmitri Mendeleïev' }))).toEqual(['framing', 'shape'])
   })
 
-  it('drops the skeleton rung when no safe skeleton exists', () => {
+  it('drops the shape rung when no safe shape exists', () => {
     expect(availableHintLevels(card({ answer: 'Au', hint: 'Du latin.' }))).toEqual([
       'framing',
       'cue',
