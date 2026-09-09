@@ -107,6 +107,14 @@ Its verification step — capture at 390×844 and 1280×800, in both colour
 schemes, and _look at the result_ — is not a formality. It is what found the
 missing light theme after three code reviews had not.
 
+**Pin the seed before capturing.** `?graine=<n>` fixes the session shuffle for
+the run and the header then shows which seed produced the screen. Without it
+`buildQueue` is seeded with the clock, every capture lands on a different card,
+and a before/after pair compares two different questions. It is a tool, not a
+feature: nothing in the interface offers it, and a value that is not a plain
+integer is ignored — visibly, since the header line only appears when a seed was
+actually understood.
+
 ## Accessibility
 
 WCAG 2.2 AA is a starting requirement, not a finish. Two mechanisms enforce it:
