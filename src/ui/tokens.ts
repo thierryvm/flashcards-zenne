@@ -1,6 +1,7 @@
 /**
  * Colour tokens, and the contrast guarantees they must hold.
  *
+ * The palette comes from `DESIGN.md`, which has authority over visual choices.
  * These values are mirrored in `src/index.css`. `tokens.test.ts` checks the
  * contrast ratios here and then compiles that stylesheet to confirm both
  * palettes reach the browser intact — one at the root, one behind
@@ -11,39 +12,53 @@
  */
 
 export interface Palette {
-  surface: string
+  /** The page itself. Warm, never pure white: a paper, not a form. */
+  paper: string
+  /** A surface lifted off the page. Used sparingly — not everything is a card. */
   raised: string
-  text: string
+  ink: string
   muted: string
+  /**
+   * Separators only, and deliberately faint. This is the one token below 3:1,
+   * which is fine for a decorative rule and wrong for anything a person can
+   * operate: a control boundary uses `accent` or `muted`, never this.
+   */
+  line: string
+  /** The single accent. Main action, links, focus ring. Rare by design. */
   accent: string
+  /** Text on an accent fill. */
   accentText: string
-  border: string
-  danger: string
-  ok: string
-}
-
-export const DARK: Palette = {
-  surface: '#0b0f14',
-  raised: '#161f29',
-  text: '#e9eff6',
-  muted: '#a9bacb',
-  accent: '#7fb0ff',
-  accentText: '#06203f',
-  border: '#6d8296',
-  danger: '#ff9d9d',
-  ok: '#7ee0a8',
+  /**
+   * The two middle grades, as one hue at decreasing intensity. Precomputed
+   * rather than an opacity, so their contrast can be asserted like any other
+   * colour.
+   */
+  gradeHard: string
+  gradeGood: string
 }
 
 export const LIGHT: Palette = {
-  surface: '#ffffff',
-  raised: '#f2f5f9',
-  text: '#111b25',
-  muted: '#4c5c6d',
-  accent: '#14509e',
+  paper: '#fbf9f5',
+  raised: '#ffffff',
+  ink: '#1a1a17',
+  muted: '#6b665c',
+  line: '#e2ddd2',
+  accent: '#1d5c63',
   accentText: '#ffffff',
-  border: '#6b7b8c',
-  danger: '#a3161d',
-  ok: '#106c3c',
+  gradeHard: '#97b2b3',
+  gradeGood: '#cfdad8',
+}
+
+export const DARK: Palette = {
+  paper: '#14161a',
+  raised: '#1c1f25',
+  ink: '#e8e6e1',
+  muted: '#9a958a',
+  line: '#2c3038',
+  accent: '#6fb3ba',
+  accentText: '#14161a',
+  gradeHard: '#3d5d62',
+  gradeGood: '#26353a',
 }
 
 /** WCAG 2.2 AA: 4.5:1 for body text, 3:1 for large text and UI boundaries. */
@@ -53,15 +68,19 @@ export const UI_CONTRAST = 3
 type Requirement = { foreground: keyof Palette; background: keyof Palette; minimum: number }
 
 export const CONTRAST_REQUIREMENTS: Requirement[] = [
-  { foreground: 'text', background: 'surface', minimum: TEXT_CONTRAST },
-  { foreground: 'text', background: 'raised', minimum: TEXT_CONTRAST },
-  { foreground: 'muted', background: 'surface', minimum: TEXT_CONTRAST },
+  { foreground: 'ink', background: 'paper', minimum: TEXT_CONTRAST },
+  { foreground: 'ink', background: 'raised', minimum: TEXT_CONTRAST },
+  { foreground: 'muted', background: 'paper', minimum: TEXT_CONTRAST },
   { foreground: 'muted', background: 'raised', minimum: TEXT_CONTRAST },
-  { foreground: 'accent', background: 'surface', minimum: TEXT_CONTRAST },
+  { foreground: 'accent', background: 'paper', minimum: TEXT_CONTRAST },
+  { foreground: 'accent', background: 'raised', minimum: TEXT_CONTRAST },
   { foreground: 'accentText', background: 'accent', minimum: TEXT_CONTRAST },
-  { foreground: 'danger', background: 'surface', minimum: TEXT_CONTRAST },
-  { foreground: 'ok', background: 'surface', minimum: TEXT_CONTRAST },
-  { foreground: 'border', background: 'surface', minimum: UI_CONTRAST },
+  // The four grade buttons carry the same label colour across three fills.
+  { foreground: 'ink', background: 'gradeHard', minimum: TEXT_CONTRAST },
+  { foreground: 'ink', background: 'gradeGood', minimum: TEXT_CONTRAST },
+  // Control boundaries, which is what `line` is not allowed to be.
+  { foreground: 'accent', background: 'paper', minimum: UI_CONTRAST },
+  { foreground: 'muted', background: 'paper', minimum: UI_CONTRAST },
 ]
 
 function channel(value: number): number {

@@ -76,22 +76,29 @@ export default function App() {
   )
 
   return (
-    <div className="bg-surface text-text min-h-dvh">
-      <header className="border-border border-b">
-        <div className="mx-auto flex max-w-2xl flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-4">
-          <h1 className="text-xl font-semibold">Repères</h1>
-          <p className="text-muted text-sm">Culture générale, par répétition espacée</p>
-          {/* Shown only when a seed was pinned, so a capture carries the seed
-              that produced it and a mistyped parameter is visibly ignored. */}
-          {pinnedSeed !== null && <p className="text-muted text-xs">graine {pinnedSeed}</p>}
+    <div className="bg-paper text-ink min-h-dvh">
+      <header className="border-line border-b">
+        <div className="max-w-reading mx-auto flex items-baseline justify-between gap-4 px-5 py-6 sm:px-8">
+          <div>
+            <h1 className="font-serif text-answer font-semibold">Repères</h1>
+            {/* The tagline belongs to the dashboard. During a session the
+                header competes with the question for the same 390 px, and one
+                thing at a time is the rule. */}
+            {phase !== 'study' && (
+              <p className="text-muted text-note">Culture générale, par répétition espacée</p>
+            )}
+            {/* Shown only when a seed was pinned, so a capture carries the seed
+                that produced it and a mistyped parameter is visibly ignored. */}
+            {pinnedSeed !== null && <p className="text-muted text-note">graine {pinnedSeed}</p>}
+          </div>
           {/* Always a way back. Nothing is lost by leaving: each graded card is
               persisted as it is answered. */}
           {phase !== 'home' && phase !== 'loading' && (
-            <nav className="ml-auto">
+            <nav>
               <button
                 type="button"
                 onClick={goHome}
-                className="border-border bg-raised min-h-11 rounded-lg border px-3 py-1 text-sm"
+                className="border-muted rounded-button text-label min-h-12 shrink-0 border px-4 py-2 whitespace-nowrap"
               >
                 Tableau de bord
               </button>
@@ -100,15 +107,21 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl">
+      <main>
+        {/*
+          An error must not look like a normal block — DESIGN.md forbids an
+          error state dressed as a healthy one — and it must not be red either,
+          which would be a second hue and would culpabilise. The accent fill is
+          the loudest thing the palette can say with one colour.
+        */}
         {storageFailure && (
           <div
             role="alert"
-            className="border-danger text-danger mx-4 mt-4 rounded-lg border-l-4 p-3"
+            className="bg-accent text-accent-text max-w-reading rounded-block mx-5 mt-6 p-4 sm:mx-auto"
           >
-            <p className="font-semibold">Problème d’enregistrement</p>
-            <p className="mt-1 text-sm">{STORAGE_MESSAGE[storageFailure]}</p>
-            <p className="text-muted mt-1 text-sm">
+            <p className="text-label font-semibold">Problème d’enregistrement</p>
+            <p className="text-body mt-2">{STORAGE_MESSAGE[storageFailure]}</p>
+            <p className="text-note mt-2">
               Le stockage du navigateur est peut-être indisponible : navigation privée, espace
               saturé, ou données du site bloquées.
             </p>
@@ -116,7 +129,7 @@ export default function App() {
         )}
 
         {phase === 'loading' && (
-          <p className="px-4 py-6" aria-live="polite">
+          <p className="max-w-reading text-body mx-auto px-5 py-8 sm:px-8" aria-live="polite">
             Chargement…
           </p>
         )}
@@ -141,16 +154,16 @@ export default function App() {
         )}
 
         {phase === 'done' && (
-          <section className="px-4 py-6">
-            <h2 className="text-2xl font-semibold">Séance terminée</h2>
-            <p className="text-muted mt-3">
+          <section className="max-w-reading mx-auto px-5 py-8 sm:px-8">
+            <h2 className="font-serif text-question">Séance terminée</h2>
+            <p className="text-body mt-4">
               {reviewedCount} carte{reviewedCount > 1 ? 's' : ''} revue
               {reviewedCount > 1 ? 's' : ''}. Les prochaines échéances sont déjà calculées.
             </p>
             <button
               type="button"
               onClick={goHome}
-              className="border-border bg-raised mt-5 min-h-11 rounded-lg border px-5 py-2"
+              className="border-muted rounded-button text-label mt-8 min-h-12 border px-5 py-2 font-semibold"
             >
               Retour au tableau de bord
             </button>

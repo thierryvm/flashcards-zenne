@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { GRADES, GRADE_LABELS, type ReviewGrade } from '../domain/scheduler'
-import {
-  availableHintLevels,
-  describeSkeleton,
-  hintFor,
-  HINT_LABELS,
-  type HintLevel,
-} from '../domain/hints'
+import { GRADES, GRADE_LABELS, Rating, type ReviewGrade } from '../domain/scheduler'
+import { availableHintLevels, hintFor, HINT_LABELS, type HintLevel } from '../domain/hints'
 import { THEME_LABELS, type StudyCard } from '../domain/types'
 
 export interface StudyViewProps {
@@ -16,11 +10,29 @@ export interface StudyViewProps {
   onExit: () => void
 }
 
-const BUTTON =
-  'min-h-11 px-4 py-2 rounded-lg border border-border text-text bg-raised ' +
-  'hover:border-accent disabled:opacity-60'
+/** 48 px tall, 10 px radius, one accent. The rest is intensity. */
+const BUTTON = 'min-h-12 rounded-button border px-5 py-2 text-label font-semibold'
 
-const PRIMARY = 'min-h-11 px-5 py-2 rounded-lg bg-accent text-accent-text font-semibold'
+const PRIMARY = `${BUTTON} bg-accent text-accent-text border-accent`
+const SECONDARY = `${BUTTON} border-muted text-ink`
+
+/**
+ * The four grades as one hue at decreasing intensity, never a traffic light.
+ * Red on "À revoir" makes not knowing feel like a failure, and green rewards
+ * the easy card that taught nothing — the opposite of how spacing works. The
+ * most visible button is the one you press when you did not know.
+ *
+ * The intensities are 100 / 45 / 20 / outline rather than DESIGN.md's literal
+ * 100 / 70 / 45: at 70 % of the dark accent no label colour reaches 4.5:1
+ * (3.34 with the ink, 4.35 with the paper). The order and the meaning are
+ * unchanged; the numbers are what the contrast floor allows.
+ */
+const GRADE_STYLE: Record<ReviewGrade, string> = {
+  [Rating.Again]: `${BUTTON} bg-accent text-accent-text border-accent`,
+  [Rating.Hard]: `${BUTTON} bg-grade-hard text-ink border-accent`,
+  [Rating.Good]: `${BUTTON} bg-grade-good text-ink border-accent`,
+  [Rating.Easy]: `${BUTTON} text-ink border-muted`,
+}
 
 const TEXT_FIELD = 'input, textarea, select, [contenteditable="true"]'
 const INTERACTIVE = 'button, a[href], [role="button"], summary'
@@ -109,89 +121,85 @@ export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps)
 
   if (!card) return null
 
-  const skeletonSpoken = describeSkeleton(card.content)
-
   return (
-    <section aria-labelledby="question-heading" className="mx-auto w-full max-w-2xl px-4 py-6">
-      <div className="flex items-baseline justify-between gap-3">
-        <p aria-live="polite" className="text-muted text-sm">
+    <section aria-labelledby="question-heading" className="max-w-reading mx-auto px-5 py-8 sm:px-8">
+      <div className="flex items-baseline justify-between gap-4">
+        <p aria-live="polite" className="text-muted text-note">
           Carte {index + 1} sur {queue.length} — {THEME_LABELS[card.content.theme]}
         </p>
         {/* Leaving mid-session must always be possible: every graded card is
             already saved, so nothing is lost by stopping early. */}
-        <button type="button" onClick={onExit} className="text-muted min-h-11 text-sm underline">
+        <button type="button" onClick={onExit} className="text-muted text-note min-h-12 underline">
           Quitter la séance
         </button>
       </div>
 
+      {/* The question sits on the paper, with no container. A box around it
+          would make it one object among several instead of the screen itself. */}
       <h2
         id="question-heading"
         ref={questionRef}
         tabIndex={-1}
-        className="mt-2 text-2xl font-semibold text-balance"
+        className="font-serif text-question mt-6 text-balance"
       >
         {card.content.question}
       </h2>
 
       {/* Opening a rung inserts content above the button that opened it, so it
-          has to announce itself; focus stays on the button for the next rung. */}
-      <ul aria-live="polite" className="mt-4 space-y-2 empty:mt-0">
-        {openHints.map((level) => {
-          const text = hintFor(card.content, level)
-          const isSkeleton = level === 'skeleton'
-          return (
-            <li key={level} className="border-border bg-raised rounded-lg border p-3">
-              <p className="text-muted text-sm">{HINT_LABELS[level]}</p>
-              {isSkeleton && skeletonSpoken ? (
-                <>
-                  <p aria-hidden="true" className="font-mono text-lg tracking-wide">
-                    {text}
-                  </p>
-                  <p className="sr-only">{skeletonSpoken}</p>
-                </>
-              ) : (
-                <p>{text}</p>
-              )}
-            </li>
-          )
-        })}
+          has to announce itself; focus stays on the button for the next rung.
+          Separated by a rule rather than boxed: three bordered blocks made the
+          hints heavier on the page than the answer they lead to. */}
+      <ul aria-live="polite" className="mt-8 empty:mt-0">
+        {openHints.map((level) => (
+          <li key={level} className="border-line border-t py-4 first:pt-0">
+            <p className="text-muted text-label">{HINT_LABELS[level]}</p>
+            <p className="text-body mt-1">{hintFor(card.content, level)}</p>
+          </li>
+        ))}
       </ul>
 
       {!revealed && (
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button type="button" className={PRIMARY} onClick={reveal}>
-            Afficher la réponse
-          </button>
+        <div className="mt-8 flex flex-wrap gap-3">
+          {/* Asking for help is the primary action. The button that skips
+              retrieval altogether should not be the inviting one. */}
           {nextLevel && (
-            <button type="button" className={BUTTON} onClick={openNextHint}>
+            <button type="button" className={PRIMARY} onClick={openNextHint}>
               {openHints.length === 0 ? 'Aidez-moi' : 'Un indice de plus'}
-              <span className="text-muted text-sm">
+              <span className="font-normal">
                 {' '}
                 ({openHints.length + 1}/{levels.length})
               </span>
             </button>
           )}
+          <button type="button" className={nextLevel ? SECONDARY : PRIMARY} onClick={reveal}>
+            Afficher la réponse
+          </button>
         </div>
       )}
 
       {revealed && (
-        <div ref={answerRef} tabIndex={-1} aria-labelledby="answer-heading" className="mt-6">
+        <div
+          ref={answerRef}
+          tabIndex={-1}
+          aria-labelledby="answer-heading"
+          className="motion-safe:animate-[fade_120ms_ease-out] mt-8"
+        >
           <h3 id="answer-heading" className="sr-only">
             Réponse
           </h3>
-          <p className="border-border bg-raised rounded-lg border p-4 text-xl">
+          {/* The answer is the heaviest thing on the screen: serif, larger,
+              and alone. It used to sit in the same bordered box as the hints. */}
+          <p className="font-serif text-answer border-line border-t pt-6 font-semibold">
             {card.content.answer}
           </p>
 
-          {card.content.elaboration && (
-            <p className="text-muted mt-3">{card.content.elaboration}</p>
-          )}
+          {card.content.elaboration && <p className="text-body mt-4">{card.content.elaboration}</p>}
 
           {/*
             The source is what makes a card checkable rather than merely
             asserted. It sits after the answer so it never leaks the response.
           */}
-          <p className="mt-3 text-sm">
+          <p className="text-note mt-4">
             <a
               href={card.content.source.url}
               target="_blank"
@@ -209,33 +217,53 @@ export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps)
             it can be re-read, edited, or cleared — storing a note that could
             never be changed was the appearance of the method, not the method.
           */}
-          <div className="mt-5">
-            <label htmlFor="note" className="block font-medium">
+          <div className="mt-8">
+            <label htmlFor="note" className="text-label block font-semibold">
               Pourquoi&nbsp;? <span className="text-muted font-normal">(facultatif)</span>
             </label>
-            <p id="note-help" className="text-muted text-sm">
+            <p id="note-help" className="text-muted text-note mt-1">
               {card.progress.note
                 ? 'Votre explication de la dernière fois. Modifiez-la, ou videz le champ pour l’effacer.'
                 : 'Expliquez la réponse avec vos mots. Elle vous sera reproposée à la prochaine révision.'}
             </p>
+            {/* A form control needs a boundary someone can see: `line` is a
+                separator colour and does not meet 3:1. */}
             <textarea
               id="note"
               aria-describedby="note-help"
               value={note}
               onChange={(event) => setNote(event.target.value)}
               rows={2}
-              className="border-border bg-surface mt-2 w-full rounded-lg border p-2"
+              className="border-muted bg-raised rounded-block text-body mt-3 w-full border p-3"
             />
           </div>
 
-          <div role="group" aria-label="Évaluer votre rappel" className="mt-5 flex flex-wrap gap-3">
-            {GRADES.map((value, position) => (
-              <button key={value} type="button" className={BUTTON} onClick={() => grade(value)}>
+          {/* A grid rather than a wrapping row: flow-wrap left "Facile" alone
+              on a second line at 1280 px, which reads as an afterthought rather
+              than the fourth step of a scale. */}
+          <div
+            role="group"
+            aria-label="Évaluer votre rappel"
+            aria-describedby="grades-help"
+            className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4"
+          >
+            {GRADES.map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={GRADE_STYLE[value]}
+                onClick={() => grade(value)}
+              >
                 {GRADE_LABELS[value]}
-                <span className="text-muted text-sm"> ({position + 1})</span>
               </button>
             ))}
           </div>
+          {/* The shortcut used to sit inside each label. In four equal columns
+              that forced every one of them onto two lines. */}
+          <p id="grades-help" className="text-muted text-note mt-3">
+            Touches 1 à 4. Dire que vous ne saviez pas n’est pas un échec : c’est ce qui règle la
+            prochaine échéance.
+          </p>
         </div>
       )}
     </section>

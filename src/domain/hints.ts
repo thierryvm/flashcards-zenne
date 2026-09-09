@@ -9,14 +9,14 @@ import type { CardContent, ThemeId } from './types'
  * recognise it. Each rung is opened deliberately, so the learner controls how
  * much support they take.
  */
-export type HintLevel = 'framing' | 'cue' | 'skeleton'
+export type HintLevel = 'framing' | 'cue' | 'shape'
 
-export const HINT_LEVELS: readonly HintLevel[] = ['framing', 'cue', 'skeleton']
+export const HINT_LEVELS: readonly HintLevel[] = ['framing', 'cue', 'shape']
 
 export const HINT_LABELS: Record<HintLevel, string> = {
   framing: 'De quoi parle-t-on ?',
   cue: 'Un indice',
-  skeleton: 'La forme de la réponse',
+  shape: 'La forme de la réponse',
 }
 
 /** What the learner is being asked to retrieve, inferred from the answer. */
@@ -82,12 +82,12 @@ export function framingFor(card: CardContent): string {
 }
 
 /**
- * Above this share of visible letters the skeleton stops being a hint and
- * starts being the answer: "Le S·····" gives away the Sahara to anyone who has
+ * Above this share of visible letters the rung stops being a hint and starts
+ * being the answer: "commençant par S" gives away the Sahara to anyone who has
  * read the question. Below this many letters there is nothing left to hide.
  */
-export const MAX_SKELETON_LEAK = 0.2
-export const MIN_SKELETON_LENGTH = 8
+export const MAX_SHAPE_LEAK = 0.2
+export const MIN_SHAPE_LENGTH = 8
 
 const ALPHANUMERIC = /[\p{L}\p{N}]/u
 const WORD = /[\p{L}\p{N}''-]+/gu
@@ -126,40 +126,39 @@ function leakRatio(answer: string, skeleton: string): number {
 }
 
 /**
- * The shape of the answer: initials of the longer words, punctuation kept,
- * everything else hidden.
- *
- * Returns null when no safe skeleton exists — a very short answer, or one whose
- * skeleton would reveal too much. The rung is then simply not offered, which is
- * better than offering help that hands over the answer.
- *
- * What a skeleton does disclose, by construction: the number of words, their
- * lengths, the punctuation and the initials of the longer ones. That is the
- * point of the rung; the guard exists so it stops there.
+ * How much a masked answer would give away, or null when there is nothing to
+ * hide. Kept as the yardstick even though nothing renders the mask any more: it
+ * measures exactly what the prose rung discloses — the initials of the longer
+ * words — so the same ceiling applies. Exported because it is the guarantee
+ * worth testing across the whole deck.
  */
-export function skeletonFor(card: CardContent): string | null {
-  const answer = card.answer
+export function shapeLeak(answer: string): number | null {
   const letters = [...answer].filter((character) => ALPHANUMERIC.test(character))
-  if (letters.length < MIN_SKELETON_LENGTH) return null
+  if (letters.length < MIN_SHAPE_LENGTH) return null
 
-  const skeleton = answer.replace(WORD, maskWord)
-  if (skeleton === answer) return null
-  if (leakRatio(answer, skeleton) > MAX_SKELETON_LEAK) return null
+  const masked = answer.replace(WORD, maskWord)
+  if (masked === answer) return null
 
-  return skeleton
+  return leakRatio(answer, masked)
 }
 
 /**
- * A spoken description of the skeleton. A screen reader reads "j······" as a
- * letter followed by six middle dots, which is noise; this says the same thing
- * in words.
+ * The shape of the answer, said in words: how many words, how long each one is,
+ * and the initial of the ones long enough to spare it.
  *
- * It is derived from the answer rather than parsed back out of the skeleton:
- * middle dots are not word characters, so reading the masked string would find
- * only the few revealed initials and undercount the words.
+ * This used to be rendered as "L'······· ····" in a monospace face. On screen it
+ * read as a broken field rather than a hint, and it wrapped mid-answer on
+ * anything long; a screen reader got a separate prose version, so there were two
+ * rungs pretending to be one. The prose version is now the only one, for
+ * everybody.
+ *
+ * Returns null when no safe shape exists — a very short answer, or one whose
+ * initials would reveal too much. The rung is then simply not offered, which
+ * beats offering help that hands over the answer.
  */
-export function describeSkeleton(card: CardContent): string | null {
-  if (skeletonFor(card) === null) return null
+export function shapeFor(card: CardContent): string | null {
+  const leak = shapeLeak(card.answer)
+  if (leak === null || leak > MAX_SHAPE_LEAK) return null
 
   const words = card.answer.match(WORD) ?? []
   const parts = words.map((word) => {
@@ -167,10 +166,11 @@ export function describeSkeleton(card: CardContent): string | null {
     const length = [...word].filter((character) => ALPHANUMERIC.test(character)).length
     const size = `${length} lettre${length > 1 ? 's' : ''}`
     const initial = masked[0] !== '·' && ALPHANUMERIC.test(masked[0] ?? '') ? masked[0] : null
-    return initial ? `${size}, commence par ${initial}` : size
+    return initial ? `${size} commençant par ${initial}` : size
   })
 
-  return `${words.length} mot${words.length > 1 ? 's' : ''} : ${parts.join(' ; ')}.`
+  if (words.length === 1) return `Un seul mot : ${parts[0]}.`
+  return `${words.length} mots : ${parts.join(', ')}.`
 }
 
 export function hintFor(card: CardContent, level: HintLevel): string {
@@ -179,19 +179,19 @@ export function hintFor(card: CardContent, level: HintLevel): string {
       return framingFor(card)
     case 'cue':
       return card.hint ?? framingFor(card)
-    case 'skeleton':
-      return skeletonFor(card) ?? framingFor(card)
+    case 'shape':
+      return shapeFor(card) ?? framingFor(card)
   }
 }
 
 /**
  * Rungs worth offering for a card. The cue rung needs an authored hint, and the
- * skeleton rung is dropped whenever no safe skeleton can be built.
+ * shape rung is dropped whenever no safe shape can be built.
  */
 export function availableHintLevels(card: CardContent): HintLevel[] {
   return HINT_LEVELS.filter((level) => {
     if (level === 'cue') return Boolean(card.hint)
-    if (level === 'skeleton') return skeletonFor(card) !== null
+    if (level === 'shape') return shapeFor(card) !== null
     return true
   })
 }

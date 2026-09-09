@@ -11,15 +11,15 @@ const PALETTES: Array<[string, Palette]> = [
 /** The custom-property names the palette compiles to, in CSS spelling. */
 function customProperties(palette: Palette): Record<string, string> {
   return {
-    surface: palette.surface,
+    paper: palette.paper,
     raised: palette.raised,
-    text: palette.text,
+    ink: palette.ink,
     muted: palette.muted,
+    line: palette.line,
     accent: palette.accent,
     'accent-text': palette.accentText,
-    border: palette.border,
-    danger: palette.danger,
-    ok: palette.ok,
+    'grade-hard': palette.gradeHard,
+    'grade-good': palette.gradeGood,
   }
 }
 

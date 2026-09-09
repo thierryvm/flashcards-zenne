@@ -108,12 +108,15 @@ describe('StudyView hint ladder', () => {
     await user.click(screen.getByRole('button', { name: /Un indice de plus/ }))
 
     expect(screen.getByText('La forme de la réponse')).toBeInTheDocument()
-    expect(screen.getByText('R······ ·')).toBeInTheDocument()
     expect(screen.queryByText('Réponse a')).not.toBeInTheDocument()
   })
 
-  // Middle dots are read out one by one by a screen reader, which is noise.
-  it('gives the skeleton a spoken form rather than a row of dots', async () => {
+  /*
+   * This rung was a row of middle dots in a monospace face: unreadable on
+   * screen, and read out dot by dot by a screen reader, so it also had a hidden
+   * prose twin. There is one version now, and it is the prose one.
+   */
+  it('says the shape in words rather than drawing it', async () => {
     const user = userEvent.setup()
     setup()
 
@@ -121,7 +124,8 @@ describe('StudyView hint ladder', () => {
     await user.click(screen.getByRole('button', { name: /Un indice de plus/ }))
     await user.click(screen.getByRole('button', { name: /Un indice de plus/ }))
 
-    expect(screen.getByText(/2 mots : 7 lettres, commence par R ; 1 lettre\./)).toBeInTheDocument()
+    expect(screen.getByText('2 mots : 7 lettres commençant par R, 1 lettre.')).toBeInTheDocument()
+    expect(screen.queryByText(/·/)).not.toBeInTheDocument()
   })
 
   it('announces newly opened hints, since they appear above the button', async () => {
@@ -143,6 +147,64 @@ describe('StudyView hint ladder', () => {
     await user.click(screen.getByRole('button', { name: /Un indice de plus/ }))
 
     expect(screen.queryByRole('button', { name: /indice de plus/ })).not.toBeInTheDocument()
+  })
+
+  /*
+   * "Afficher la réponse" used to be the filled, primary button and "Aidez-moi"
+   * the outlined one below it, so the most inviting gesture on the screen was
+   * the one that skips retrieval altogether. Order in the DOM is order for the
+   * eye and for the Tab key alike.
+   */
+  it('puts asking for help before giving up', () => {
+    setup()
+
+    const buttons = screen.getAllByRole('button').map((button) => button.textContent)
+    const help = buttons.findIndex((label) => label?.startsWith('Aidez-moi'))
+    const reveal = buttons.indexOf('Afficher la réponse')
+
+    expect(help).toBeGreaterThanOrEqual(0)
+    expect(help).toBeLessThan(reveal)
+  })
+})
+
+/*
+ * The four grades were byte-identical buttons: same border, same background,
+ * same weight, folding into a 2x2 grid on a phone that read as a menu of equal
+ * options. DESIGN.md asks for one hue at four decreasing intensities, with
+ * "À revoir" the most visible — saying you did not know should be the easiest
+ * gesture on the screen, never a red button that reads as a failure.
+ */
+describe('StudyView grades', () => {
+  async function revealed() {
+    const user = userEvent.setup()
+    setup()
+    await user.click(screen.getByRole('button', { name: 'Afficher la réponse' }))
+    return ['À revoir', 'Difficile', 'Correct', 'Facile'].map(
+      (label) => screen.getByRole('button', { name: new RegExp(`^${label}`) }).className,
+    )
+  }
+
+  it('gives the four grades four different weights', async () => {
+    const styles = await revealed()
+
+    expect(new Set(styles).size).toBe(4)
+  })
+
+  it('makes "À revoir" the filled one and "Facile" the bare one', async () => {
+    const [again, hard, good, easy] = await revealed()
+
+    expect(again).toContain('bg-accent')
+    expect(hard).toContain('bg-grade-hard')
+    expect(good).toContain('bg-grade-good')
+    expect(easy).not.toContain('bg-')
+  })
+
+  it('uses no second hue, so nothing reads as a red failure', async () => {
+    const styles = await revealed()
+
+    for (const style of styles) {
+      expect(style).not.toMatch(/bg-(red|green|amber|orange|danger|ok)/)
+    }
   })
 })
 
