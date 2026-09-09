@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { GRADES, GRADE_LABELS, type ReviewGrade } from '../domain/scheduler'
-import { availableHintLevels, hintFor, HINT_LABELS, type HintLevel } from '../domain/hints'
+import {
+  availableHintLevels,
+  describeSkeleton,
+  hintFor,
+  HINT_LABELS,
+  type HintLevel,
+} from '../domain/hints'
 import { THEME_LABELS, type StudyCard } from '../domain/types'
 
 export interface StudyViewProps {
   queue: readonly StudyCard[]
-  onReview: (card: StudyCard, grade: ReviewGrade, note?: string) => void
+  onReview: (card: StudyCard, grade: ReviewGrade, note: string | undefined) => void
   onFinish: () => void
   onExit: () => void
 }
@@ -16,16 +22,30 @@ const BUTTON =
 
 const PRIMARY = 'min-h-11 px-5 py-2 rounded-lg bg-accent text-accent-text font-semibold'
 
+const TEXT_FIELD = 'input, textarea, select, [contenteditable="true"]'
+const INTERACTIVE = 'button, a[href], [role="button"], summary'
+
 export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps) {
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
   const [openHints, setOpenHints] = useState<HintLevel[]>([])
-  const [note, setNote] = useState('')
-  const ratingRef = useRef<HTMLDivElement>(null)
+  const questionRef = useRef<HTMLHeadingElement>(null)
+  const answerRef = useRef<HTMLDivElement>(null)
 
   const card = queue[index]
   const levels = card ? availableHintLevels(card.content) : []
   const nextLevel = levels[openHints.length]
+
+  // The note starts from what the learner wrote last time, so leaving it
+  // untouched keeps it and emptying it erases it. Both were impossible before.
+  // Reset during render rather than in an effect: an effect would render the
+  // previous card's note for one frame before correcting it.
+  const [note, setNote] = useState(card?.progress.note ?? '')
+  const [noteCardId, setNoteCardId] = useState(card?.content.id)
+  if (card && noteCardId !== card.content.id) {
+    setNoteCardId(card.content.id)
+    setNote(card.progress.note ?? '')
+  }
 
   const reveal = useCallback(() => setRevealed(true), [])
 
@@ -36,28 +56,33 @@ export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps)
   const grade = useCallback(
     (value: ReviewGrade) => {
       if (!card) return
-      onReview(card, value, note.trim() || undefined)
+      onReview(card, value, note.trim() === '' ? undefined : note.trim())
       setRevealed(false)
       setOpenHints([])
-      setNote('')
       if (index + 1 >= queue.length) onFinish()
       else setIndex(index + 1)
     },
     [card, index, note, onFinish, onReview, queue.length],
   )
 
-  // Keyboard shortcuts: space or enter to reveal, 1-4 to grade. Typing a note
-  // must never be captured, so text fields are excluded explicitly.
   useEffect(() => {
     function handle(event: KeyboardEvent) {
+      // A shortcut must never shadow a browser or assistive-technology command.
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+
       const target = event.target as HTMLElement | null
-      if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT')) return
+      if (target?.closest(TEXT_FIELD)) return
 
       if (!revealed && (event.key === ' ' || event.key === 'Enter')) {
+        // Space and Enter activate whatever button has focus. Swallowing them
+        // here would break every control on the card for keyboard users, which
+        // is exactly what it used to do.
+        if (target?.closest(INTERACTIVE)) return
         event.preventDefault()
         reveal()
         return
       }
+
       if (revealed) {
         const position = Number.parseInt(event.key, 10)
         if (position >= 1 && position <= GRADES.length) {
@@ -70,15 +95,21 @@ export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps)
     return () => window.removeEventListener('keydown', handle)
   }, [grade, reveal, revealed])
 
-  // Send focus to the grading controls on reveal so the keyboard path continues
-  // without a hunt through the page.
+  // Focus follows the reading order: the new question, then the answer once it
+  // is shown. Without this the focus fell back to <body> on every card, so a
+  // screen-reader user was silently returned to the top of the document twelve
+  // times a session.
   useEffect(() => {
-    if (revealed) ratingRef.current?.focus()
+    if (!revealed) questionRef.current?.focus()
+  }, [index, revealed])
+
+  useEffect(() => {
+    if (revealed) answerRef.current?.focus()
   }, [revealed])
 
   if (!card) return null
 
-  const previousNote = card.progress.note
+  const skeletonSpoken = describeSkeleton(card.content)
 
   return (
     <section aria-labelledby="question-heading" className="mx-auto w-full max-w-2xl px-4 py-6">
@@ -93,22 +124,38 @@ export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps)
         </button>
       </div>
 
-      <h2 id="question-heading" className="mt-2 text-2xl font-semibold text-balance">
+      <h2
+        id="question-heading"
+        ref={questionRef}
+        tabIndex={-1}
+        className="mt-2 text-2xl font-semibold text-balance"
+      >
         {card.content.question}
       </h2>
 
-      {openHints.length > 0 && (
-        <ul className="mt-4 space-y-2">
-          {openHints.map((level) => (
-            <li key={level} className="rounded-lg border border-border bg-raised p-3">
+      {/* Opening a rung inserts content above the button that opened it, so it
+          has to announce itself; focus stays on the button for the next rung. */}
+      <ul aria-live="polite" className="mt-4 space-y-2 empty:mt-0">
+        {openHints.map((level) => {
+          const text = hintFor(card.content, level)
+          const isSkeleton = level === 'skeleton'
+          return (
+            <li key={level} className="border-border bg-raised rounded-lg border p-3">
               <p className="text-muted text-sm">{HINT_LABELS[level]}</p>
-              <p className={level === 'skeleton' ? 'font-mono text-lg tracking-wide' : ''}>
-                {hintFor(card.content, level)}
-              </p>
+              {isSkeleton && skeletonSpoken ? (
+                <>
+                  <p aria-hidden="true" className="font-mono text-lg tracking-wide">
+                    {text}
+                  </p>
+                  <p className="sr-only">{skeletonSpoken}</p>
+                </>
+              ) : (
+                <p>{text}</p>
+              )}
             </li>
-          ))}
-        </ul>
-      )}
+          )
+        })}
+      </ul>
 
       {!revealed && (
         <div className="mt-6 flex flex-wrap gap-3">
@@ -128,9 +175,11 @@ export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps)
       )}
 
       {revealed && (
-        <div className="mt-6">
-          <h3 className="sr-only">Réponse</h3>
-          <p className="rounded-lg border border-border bg-raised p-4 text-xl">
+        <div ref={answerRef} tabIndex={-1} aria-labelledby="answer-heading" className="mt-6">
+          <h3 id="answer-heading" className="sr-only">
+            Réponse
+          </h3>
+          <p className="border-border bg-raised rounded-lg border p-4 text-xl">
             {card.content.answer}
           </p>
 
@@ -156,23 +205,18 @@ export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps)
 
           {/*
             Elaborative interrogation only works if the learner's own
-            explanation comes back to them. Storing it and never showing it
-            again would be the appearance of the method without its mechanism.
+            explanation comes back to them. The field is pre-filled with it, so
+            it can be re-read, edited, or cleared — storing a note that could
+            never be changed was the appearance of the method, not the method.
           */}
-          {previousNote && (
-            <div className="border-accent mt-5 rounded-lg border-l-4 bg-raised p-3">
-              <p className="text-muted text-sm">Votre explication, la dernière fois</p>
-              <p className="mt-1">{previousNote}</p>
-            </div>
-          )}
-
           <div className="mt-5">
             <label htmlFor="note" className="block font-medium">
               Pourquoi&nbsp;? <span className="text-muted font-normal">(facultatif)</span>
             </label>
             <p id="note-help" className="text-muted text-sm">
-              Expliquez la réponse avec vos mots. Elle vous sera reproposée à la prochaine révision
-              de cette carte.
+              {card.progress.note
+                ? 'Votre explication de la dernière fois. Modifiez-la, ou videz le champ pour l’effacer.'
+                : 'Expliquez la réponse avec vos mots. Elle vous sera reproposée à la prochaine révision.'}
             </p>
             <textarea
               id="note"
@@ -180,18 +224,11 @@ export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps)
               value={note}
               onChange={(event) => setNote(event.target.value)}
               rows={2}
-              placeholder={previousNote ? 'Reformuler ou compléter…' : undefined}
               className="border-border bg-surface mt-2 w-full rounded-lg border p-2"
             />
           </div>
 
-          <div
-            ref={ratingRef}
-            tabIndex={-1}
-            role="group"
-            aria-label="Évaluer votre rappel"
-            className="mt-5 flex flex-wrap gap-3"
-          >
+          <div role="group" aria-label="Évaluer votre rappel" className="mt-5 flex flex-wrap gap-3">
             {GRADES.map((value, position) => (
               <button key={value} type="button" className={BUTTON} onClick={() => grade(value)}>
                 {GRADE_LABELS[value]}

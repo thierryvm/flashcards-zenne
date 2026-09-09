@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { StudyView } from './ui/StudyView'
 import { Dashboard } from './ui/Dashboard'
-import { buildQueue } from './domain/queue'
+import { buildQueue, DEFAULT_SESSION_LIMIT } from './domain/queue'
 import { createScheduler, type ReviewGrade } from './domain/scheduler'
 import { loadStudyCards, saveProgress } from './data/repository'
 import type { StudyCard } from './domain/types'
 
-const SESSION_LIMIT = 12
-
 type Phase = 'loading' | 'home' | 'study' | 'done'
+export type StorageFailure = 'load' | 'save'
+
+const STORAGE_MESSAGE: Record<StorageFailure, string> = {
+  load: "Vos révisions précédentes n'ont pas pu être chargées. Ce que vous voyez peut être incomplet.",
+  save: "Votre dernière réponse n'a pas pu être enregistrée. Vos révisions de cette séance risquent d'être perdues.",
+}
 
 export default function App() {
   const scheduler = useMemo(() => createScheduler(), [])
@@ -16,6 +20,7 @@ export default function App() {
   const [queue, setQueue] = useState<StudyCard[]>([])
   const [reviewedCount, setReviewedCount] = useState(0)
   const [phase, setPhase] = useState<Phase>('loading')
+  const [storageFailure, setStorageFailure] = useState<StorageFailure | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -26,7 +31,12 @@ export default function App() {
         setPhase('home')
       })
       .catch(() => {
-        if (!cancelled) setPhase('home')
+        // Browser storage can be unavailable outright: private windows, a
+        // corrupted database, a quota refusal. Failing silently would show an
+        // empty, reassuring dashboard, which is the worst possible answer.
+        if (cancelled) return
+        setStorageFailure('load')
+        setPhase('home')
       })
     return () => {
       cancelled = true
@@ -34,7 +44,7 @@ export default function App() {
   }, [scheduler])
 
   const start = useCallback(() => {
-    setQueue(buildQueue(cards, { limit: SESSION_LIMIT, seed: Date.now() }))
+    setQueue(buildQueue(cards, { limit: DEFAULT_SESSION_LIMIT, seed: Date.now() }))
     setReviewedCount(0)
     setPhase('study')
   }, [cards])
@@ -42,11 +52,13 @@ export default function App() {
   const goHome = useCallback(() => setPhase('home'), [])
 
   const handleReview = useCallback(
-    (card: StudyCard, grade: ReviewGrade, note?: string) => {
+    (card: StudyCard, grade: ReviewGrade, note: string | undefined) => {
       const next = {
         cardId: card.content.id,
         fsrs: scheduler.review(card.progress.fsrs, grade),
-        note: note ?? card.progress.note,
+        // Taken verbatim, so emptying the field clears the note. Falling back
+        // to the previous value made a note impossible to delete.
+        note,
         updatedAt: new Date(),
       }
       setCards((current) =>
@@ -55,7 +67,7 @@ export default function App() {
         ),
       )
       setReviewedCount((count) => count + 1)
-      void saveProgress(next)
+      saveProgress(next).catch(() => setStorageFailure('save'))
     },
     [scheduler],
   )
@@ -83,6 +95,20 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-2xl">
+        {storageFailure && (
+          <div
+            role="alert"
+            className="border-danger text-danger mx-4 mt-4 rounded-lg border-l-4 p-3"
+          >
+            <p className="font-semibold">Problème d’enregistrement</p>
+            <p className="mt-1 text-sm">{STORAGE_MESSAGE[storageFailure]}</p>
+            <p className="text-muted mt-1 text-sm">
+              Le stockage du navigateur est peut-être indisponible : navigation privée, espace
+              saturé, ou données du site bloquées.
+            </p>
+          </div>
+        )}
+
         {phase === 'loading' && (
           <p className="px-4 py-6" aria-live="polite">
             Chargement…
@@ -93,8 +119,9 @@ export default function App() {
           <Dashboard
             cards={cards}
             scheduler={scheduler}
-            sessionLimit={SESSION_LIMIT}
+            sessionLimit={DEFAULT_SESSION_LIMIT}
             onStart={start}
+            storageHealthy={storageFailure === null}
           />
         )}
 

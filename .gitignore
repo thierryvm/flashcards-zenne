@@ -28,3 +28,6 @@ dev-dist
 *.njsproj
 *.sln
 *.sw?
+
+# Screenshots are build artefacts, not source.
+shots

@@ -51,7 +51,14 @@ export function statsByTheme(cards: readonly StudyCard[], now: Date = new Date()
 
 export interface UpcomingDay {
   date: Date
-  count: number
+  /** Cards scheduled for this exact day. */
+  due: number
+  /** Cards whose due date has already passed. Only ever set on the first day. */
+  overdue: number
+  /** Never-seen cards, available immediately. Only ever set on the first day. */
+  newCards: number
+  /** What the learner actually has to do that day. */
+  total: number
 }
 
 function atMidnight(date: Date): Date {
@@ -61,9 +68,14 @@ function atMidnight(date: Date): Date {
 }
 
 /**
- * How many cards fall due on each of the coming days. Seeing the load ahead is
- * what makes spacing legible: it turns "come back later" into something the
- * learner can plan around.
+ * What the learner has to do on each of the coming days. Seeing the load ahead
+ * is what makes spacing legible: it turns "come back later" into something they
+ * can plan around.
+ *
+ * Never-seen cards and overdue ones are counted on the first day, because that
+ * is when they are actually available — but they are kept in their own fields
+ * rather than folded into the day's total silently. A brand-new deck used to
+ * show "48 nouvelles" on one screen and seven empty days on the next.
  */
 export function upcomingReviews(
   cards: readonly StudyCard[],
@@ -74,30 +86,45 @@ export function upcomingReviews(
   const buckets: UpcomingDay[] = Array.from({ length: days }, (_, offset) => {
     const date = new Date(start)
     date.setDate(start.getDate() + offset)
-    return { date, count: 0 }
+    return { date, due: 0, overdue: 0, newCards: 0, total: 0 }
   })
 
   for (const card of cards) {
-    if (isNew(card.progress.fsrs)) continue
+    if (isNew(card.progress.fsrs)) {
+      buckets[0].newCards += 1
+      continue
+    }
 
     const due = atMidnight(card.progress.fsrs.due)
     const offset = Math.round((due.getTime() - start.getTime()) / 86_400_000)
-    if (offset < 0) buckets[0].count += 1
-    else if (offset < days) buckets[offset].count += 1
+    if (offset < 0) buckets[0].overdue += 1
+    else if (offset < days) buckets[offset].due += 1
+  }
+
+  for (const bucket of buckets) {
+    bucket.total = bucket.due + bucket.overdue + bucket.newCards
   }
 
   return buckets
 }
 
+export interface Retention {
+  mean: number
+  /** How many cards the mean is computed over. "100 %" over one card is noise. */
+  sampleSize: number
+}
+
 /**
  * Mean probability of recall across cards already seen, as FSRS estimates it.
- * Returns null when nothing has been reviewed, rather than a misleading zero.
+ * Returns null when nothing has been reviewed, rather than a misleading zero,
+ * and always carries its sample size so the figure can be shown with its
+ * denominator instead of as a bare percentage.
  */
 export function averageRetention(
   cards: readonly StudyCard[],
   scheduler: Scheduler,
   now: Date = new Date(),
-): number | null {
+): Retention | null {
   const seen = cards.filter((card) => !isNew(card.progress.fsrs))
   if (seen.length === 0) return null
 
@@ -105,5 +132,5 @@ export function averageRetention(
     (sum, card) => sum + scheduler.retrievability(card.progress.fsrs, now),
     0,
   )
-  return total / seen.length
+  return { mean: total / seen.length, sampleSize: seen.length }
 }
