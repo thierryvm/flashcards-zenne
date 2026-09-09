@@ -1,9 +1,13 @@
 /**
  * Colour tokens, and the contrast guarantees they must hold.
  *
- * These values are mirrored in `src/index.css`. `tokens.test.ts` checks both the
- * contrast ratios and the fact that the stylesheet still uses these exact hex
- * values, so an accessible palette cannot silently drift out of compliance.
+ * These values are mirrored in `src/index.css`. `tokens.test.ts` checks the
+ * contrast ratios here and then compiles that stylesheet to confirm both
+ * palettes reach the browser intact — one at the root, one behind
+ * `prefers-color-scheme: dark`, with nothing extra.
+ *
+ * It used to check the *source* of `index.css` instead, which is why a light
+ * theme that never compiled passed CI for four releases.
  */
 
 export interface Palette {

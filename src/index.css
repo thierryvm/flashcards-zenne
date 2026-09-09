@@ -3,8 +3,18 @@
 /*
  * Values mirror src/ui/tokens.ts, which is the source of truth and carries the
  * contrast tests. Changing a colour here without changing it there fails CI.
+ *
+ * The light palette is the default and `@theme` must stay at the top level.
+ * Nesting it inside `@media (prefers-color-scheme: dark)` is not supported by
+ * Tailwind v4: the block was folded into the single root theme, the dark values
+ * overwrote the light ones, and the light theme never reached a browser. The
+ * test now reads the compiled stylesheet, which is where that was visible.
+ *
+ * `static` keeps every token in the output even when no utility uses it yet.
+ * Without it an unused colour is tree-shaken out of one palette but kept in the
+ * other, and the two stop describing the same set of names.
  */
-@theme {
+@theme static {
   --color-surface: #ffffff;
   --color-raised: #f2f5f9;
   --color-text: #111b25;
@@ -16,8 +26,13 @@
   --color-ok: #106c3c;
 }
 
+/*
+ * The dark palette redefines the custom properties in plain CSS. Utilities
+ * compile to `var(--color-surface)`, so overriding the variable switches the
+ * whole interface — no `dark:` variant is needed in any component.
+ */
 @media (prefers-color-scheme: dark) {
-  @theme {
+  :root {
     --color-surface: #0b0f14;
     --color-raised: #161f29;
     --color-text: #e9eff6;
