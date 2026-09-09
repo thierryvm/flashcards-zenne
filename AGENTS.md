@@ -103,10 +103,9 @@ are a later phase and must be designed and approved before any code is written.
 PR that makes it. **The current interface does not conform to it yet** — palette,
 typography, spacing scale and the four grade buttons all predate the document.
 
-Its verification step (`tools/shot.sh` at 390×844 and 1280×800, in both colour
-schemes, _looked at_) cannot run here yet: Playwright's Chromium needs system
-libraries that are not installed, and installing them needs root. Until that is
-resolved, no UI change in this repo has been visually verified.
+Its verification step — capture at 390×844 and 1280×800, in both colour
+schemes, and _look at the result_ — is not a formality. It is what found the
+missing light theme after three code reviews had not.
 
 ## Accessibility
 
@@ -114,8 +113,18 @@ WCAG 2.2 AA is a starting requirement, not a finish. Two mechanisms enforce it:
 
 - `src/ui/tokens.ts` is the single source of truth for colour, and
   `tokens.test.ts` asserts every contrast pair (4.5:1 for text, 3:1 for UI) in
-  both palettes **and** that `index.css` still carries the same hex values.
+  both palettes **and** that both palettes survive compilation.
 - `src/test/axe.ts` runs axe-core over rendered components.
+
+**Assert on the compiled stylesheet, never on `index.css`.** The token test used
+to check that the hex values appeared in the source file. They did — and the
+light theme still never reached a browser, because `@theme` nested inside
+`@media (prefers-color-scheme: dark)` is not supported by Tailwind v4: the block
+is folded into the single root theme, so the dark values overwrote the light
+ones. Valid CSS, valid-looking source, no light palette in `dist`. Three review
+passes missed it; a screenshot found it in one second. `src/test/stylesheet.ts`
+now compiles `index.css` through the real pipeline and the test reads the
+output, which is the only artefact anyone is served.
 
 **Known gap:** axe cannot evaluate colour contrast under jsdom — it needs a real
 canvas. Structural checks (labels, roles, names) are covered by axe; contrast is
