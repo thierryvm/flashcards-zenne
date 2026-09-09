@@ -24,9 +24,15 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
   return out
 }
 
+/**
+ * Hard stop on session length. Short sessions with a visible end beat
+ * open-ended ones, especially for learners who tire quickly. Exported so the
+ * default here and the number the app advertises cannot drift apart.
+ */
+export const DEFAULT_SESSION_LIMIT = 12
+
 export interface QueueOptions {
   now?: Date
-  /** Hard stop on session length. Short sessions with a visible end beat open-ended ones. */
   limit?: number
   seed?: number
 }
@@ -39,7 +45,7 @@ export interface QueueOptions {
  * point of the exercise. Blocked practice feels easier and retains worse.
  */
 export function buildQueue(cards: readonly StudyCard[], options: QueueOptions = {}): StudyCard[] {
-  const { now = new Date(), limit = 20, seed = 1 } = options
+  const { now = new Date(), limit = DEFAULT_SESSION_LIMIT, seed = 1 } = options
   const random = mulberry32(seed)
 
   const due = cards.filter((card) => isNew(card.progress.fsrs) || isDue(card.progress.fsrs, now))

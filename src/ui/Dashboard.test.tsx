@@ -29,10 +29,17 @@ function reviewed(card: StudyCard): StudyCard {
   }
 }
 
-function setup(cards: StudyCard[] = [makeCard('a'), makeCard('b', 'sciences')]) {
+function setup(cards: StudyCard[] = [makeCard('a'), makeCard('b', 'sciences')], props = {}) {
   const onStart = vi.fn()
   const view = render(
-    <Dashboard cards={cards} scheduler={scheduler} sessionLimit={12} onStart={onStart} now={NOW} />,
+    <Dashboard
+      cards={cards}
+      scheduler={scheduler}
+      sessionLimit={12}
+      onStart={onStart}
+      now={NOW}
+      {...props}
+    />,
   )
   return { onStart, ...view }
 }
@@ -59,13 +66,39 @@ describe('Dashboard', () => {
     expect(screen.getAllByText(/% acquises sur/).length).toBeGreaterThan(0)
   })
 
-  it('shows the week ahead', () => {
-    setup()
+  it('starts a session on request', async () => {
+    const user = userEvent.setup()
+    const { onStart } = setup()
 
-    expect(screen.getByRole('heading', { name: 'Les sept prochains jours' })).toBeInTheDocument()
-    expect(screen.getAllByText(/à revoir/).length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: /Commencer une séance/ }))
+
+    expect(onStart).toHaveBeenCalledOnce()
   })
 
+  // Rendering without the `now` prop exercises the default the app actually
+  // uses; every other test here freezes the clock.
+  it('renders against the real clock when no date is supplied', () => {
+    render(
+      <Dashboard
+        cards={[makeCard('a')]}
+        scheduler={scheduler}
+        sessionLimit={12}
+        onStart={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Votre progression' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Commencer une séance/ })).toBeEnabled()
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = setup()
+
+    await expectNoAxeViolations(container)
+  })
+})
+
+describe('Dashboard retention', () => {
   it('holds back retention until something has been reviewed', () => {
     setup()
 
@@ -79,25 +112,62 @@ describe('Dashboard', () => {
     expect(screen.getByText(/%$/)).toBeInTheDocument()
   })
 
-  it('starts a session on request', async () => {
-    const user = userEvent.setup()
-    const { onStart } = setup()
+  // "100 %" after a single easy card is noise without its denominator.
+  it('shows how many cards the figure covers', () => {
+    setup([reviewed(makeCard('a')), reviewed(makeCard('b')), makeCard('c')])
 
-    await user.click(screen.getByRole('button', { name: /Commencer une séance/ }))
+    expect(screen.getByText('sur 2 cartes')).toBeInTheDocument()
+  })
+})
 
-    expect(onStart).toHaveBeenCalledOnce()
+describe('Dashboard week ahead', () => {
+  it('shows the week ahead', () => {
+    setup()
+
+    expect(screen.getByRole('heading', { name: 'Les sept prochains jours' })).toBeInTheDocument()
   })
 
-  it('explains the empty state instead of offering a dead button', () => {
+  /*
+   * A new deck used to show "48 nouvelles" in the counters and seven empty days
+   * underneath, because unseen cards were left out of the schedule entirely.
+   */
+  it('counts never-seen cards in today rather than showing an empty week', () => {
+    setup([makeCard('a'), makeCard('b')])
+
+    expect(screen.getByText(/2 nouvelles/)).toBeInTheDocument()
+  })
+
+  it('names overdue cards instead of folding them silently into today', () => {
+    const card = reviewed(makeCard('a'))
+    const muchLater = new Date(NOW.getTime() + 400 * 86_400_000)
+    setup([card], { now: muchLater })
+
+    expect(screen.getByText(/1 en retard/)).toBeInTheDocument()
+  })
+})
+
+describe('Dashboard when storage has failed', () => {
+  /*
+   * With an unreadable database the deck comes back empty, and the cheerful
+   * empty state turned a broken app into one that looked up to date. For an
+   * owner who does not read code, that is the worst possible message.
+   */
+  it('does not present an unreadable database as a finished session', () => {
+    setup([], { storageHealthy: false })
+
+    expect(screen.queryByText(/Revenez plus tard/)).not.toBeInTheDocument()
+    expect(screen.getByText(/problème d’enregistrement/i)).toBeInTheDocument()
+  })
+
+  it('does not promise retention that will never arrive', () => {
+    setup([], { storageHealthy: false })
+
+    expect(screen.queryByText(/La rétention apparaîtra/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the reassuring empty state when storage is fine', () => {
     setup([reviewed(makeCard('a'))])
 
-    expect(screen.getByRole('button', { name: /Commencer une séance/ })).toBeDisabled()
     expect(screen.getByText(/Revenez plus tard/)).toBeInTheDocument()
-  })
-
-  it('has no accessibility violations', async () => {
-    const { container } = setup()
-
-    await expectNoAxeViolations(container)
   })
 })

@@ -58,6 +58,27 @@ be the appearance of elaborative interrogation without its mechanism.
 answered, so quitting early loses nothing. Never build a flow that traps the
 learner until a counter runs out.
 
+**Global key handlers never swallow a control's own keys.** `preventDefault` on
+Space or Enter cancels the native activation of whatever button has focus. The
+reveal shortcut once did exactly that, making the hint ladder mouse-only and
+breaking the exit button at the moment someone wanted to stop — a WCAG 2.1.1
+failure that both axe assertions passed, because axe reads markup and not
+behaviour. Any global shortcut must bail out on `metaKey`, `ctrlKey`, `altKey`,
+on text fields, and on interactive elements. `StudyView.test.tsx` has the
+regression suite; it was checked against the old code and fails on it.
+
+**The skeleton rung must never approach the answer.** `skeletonFor` returns null
+rather than a hint that reveals more than `MAX_SKELETON_LEAK`, and the rung is
+then not offered. The leak ceiling and the "no whole word in the clear" property
+are asserted across the entire deck, not on a sample — an earlier version
+exempted small words and returned "Au" for "Au".
+
+**A failure must never render as a healthy empty state.** If IndexedDB cannot be
+read or written, say so. An unreadable database once produced a serene dashboard
+— nothing due, no retention, an empty week — under "come back later, spacing is
+the point". For an owner who does not read code, that is the worst possible
+message. `storageHealthy` is what keeps the reassuring copy honest.
+
 **Every card must carry a source.** `CardContent.source` is required, so the
 rule lives in the compiler rather than in a review checklist: a card with no
 reference does not compile. The 48 article titles were validated against the
@@ -75,6 +96,17 @@ elided articles. It catches flattened apostrophes, not missing accents.
 **Everything is local.** No account, no server, no personal data leaves the
 device. That is also why v0 needed no privacy review to ship. Sync and accounts
 are a later phase and must be designed and approved before any code is written.
+
+## Visual direction
+
+`DESIGN.md` has authority over visual choices and every deviation belongs in the
+PR that makes it. **The current interface does not conform to it yet** — palette,
+typography, spacing scale and the four grade buttons all predate the document.
+
+Its verification step (`tools/shot.sh` at 390×844 and 1280×800, in both colour
+schemes, _looked at_) cannot run here yet: Playwright's Chromium needs system
+libraries that are not installed, and installing them needs root. Until that is
+resolved, no UI change in this repo has been visually verified.
 
 ## Accessibility
 
