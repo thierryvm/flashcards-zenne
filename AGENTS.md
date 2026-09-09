@@ -79,17 +79,6 @@ read or written, say so. An unreadable database once produced a serene dashboard
 the point". For an owner who does not read code, that is the worst possible
 message. `storageHealthy` is what keeps the reassuring copy honest.
 
-## Visual direction
-
-`DESIGN.md` has authority over visual choices and every deviation belongs in the
-PR that makes it. **The current interface does not conform to it yet** — palette,
-typography, spacing scale and the four grade buttons all predate the document.
-
-Its verification step (`tools/shot.sh` at 390×844 and 1280×800, in both colour
-schemes, _looked at_) currently cannot run here: Playwright's Chromium needs
-system libraries that are not installed, and installing them needs root. Until
-that is resolved, no UI change in this repo has been visually verified.
-
 **Every card must carry a source.** `CardContent.source` is required, so the
 rule lives in the compiler rather than in a review checklist: a card with no
 reference does not compile. The 48 article titles were validated against the
@@ -107,6 +96,17 @@ elided articles. It catches flattened apostrophes, not missing accents.
 **Everything is local.** No account, no server, no personal data leaves the
 device. That is also why v0 needed no privacy review to ship. Sync and accounts
 are a later phase and must be designed and approved before any code is written.
+
+## Visual direction
+
+`DESIGN.md` has authority over visual choices and every deviation belongs in the
+PR that makes it. **The current interface does not conform to it yet** — palette,
+typography, spacing scale and the four grade buttons all predate the document.
+
+Its verification step (`tools/shot.sh` at 390×844 and 1280×800, in both colour
+schemes, _looked at_) cannot run here yet: Playwright's Chromium needs system
+libraries that are not installed, and installing them needs root. Until that is
+resolved, no UI change in this repo has been visually verified.
 
 ## Accessibility
 
