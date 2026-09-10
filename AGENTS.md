@@ -79,6 +79,21 @@ rung had two faces that could drift apart. There is one version now — the pros
 one — and everyone gets it. A shape that looks like a rendering fault does not
 improve by adjusting its letter-spacing.
 
+**An affordance announcement is not content, and may be announced only.** The
+new-tab warning on the source link is `sr-only`: a sighted person watches the tab
+arrive and loses nothing, a screen-reader user gets no such signal and keeps the
+words. That is the opposite call from the hint ladder, on purpose. There, two
+versions of the _hint itself_ existed and could drift apart, and the visible one
+was unreadable. The test to apply: would a reader be missing part of the subject
+matter? Then everyone gets it. Is it about how the interface behaves? Then give
+it to whoever cannot otherwise perceive it.
+
+**Do not print a column that can only be zero.** Before the first session,
+"Acquises", "En cours" and "À revoir" are twenty-four zeros on the very first
+screen anyone sees — the loudest thing on the page and the least informative.
+The theme and its card count stay; the rest appears when there is something to
+put in it.
+
 **A failure must never render as a healthy empty state.** If IndexedDB cannot be
 read or written, say so. An unreadable database once produced a serene dashboard
 — nothing due, no retention, an empty week — under "come back later, spacing is
@@ -117,6 +132,11 @@ decide, and they are recorded here rather than left to be rediscovered:
 - **`line` is the only token below 3:1 and it may only separate.** Anything a
   person can operate — a button edge, a field border — is bounded by `accent` or
   `muted`. A 1.29:1 rule around a text field would be a WCAG 1.4.11 failure.
+  Careful with the corollary: "not `line`" is not the same as "`muted`". The
+  fourth grade was outlined in `muted`, the colour of "Tableau de bord" and
+  "Quitter la séance", so the last step of the scale joined the navigation
+  instead of standing next to "Correct". A bare outline is the 0 % step of the
+  same ramp and carries the ramp's colour.
 - **The fonts are self-hosted, not loaded from Google Fonts.** A third-party
   stylesheet cannot be precached, so an offline-first app would lose its
   typography exactly when it is most needed, and every page view would hand the
