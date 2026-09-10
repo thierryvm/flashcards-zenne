@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CULTURE_GENERALE } from './culture-generale'
-import { THEMES } from '../domain/types'
+import { THEMES, type CardContent } from '../domain/types'
 
 describe('culture générale deck', () => {
   it('ships the full sourced deck', () => {
@@ -23,6 +23,24 @@ describe('culture générale deck', () => {
     const used = new Set(CULTURE_GENERALE.map((card) => card.theme))
 
     expect([...THEMES].filter((theme) => !used.has(theme))).toEqual([])
+  })
+
+  /*
+   * The type is what stops an unsourced card ever being written, and a compiler
+   * rule nothing exercises is a comment. `@ts-expect-error` fails the typecheck
+   * if the line below stops being an error, so the attempt that must fail is
+   * kept permanently instead of being run once by hand.
+   */
+  it('refuses at compile time to describe a card without a source', () => {
+    // @ts-expect-error `source` is required on CardContent.
+    const unsourced: CardContent = {
+      id: 'probe',
+      theme: 'sciences',
+      question: 'Question ?',
+      answer: 'Réponse',
+    }
+
+    expect(unsourced.source).toBeUndefined()
   })
 
   // The product rule: no card ships without a reference a learner can open.
