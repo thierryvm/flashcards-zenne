@@ -9,9 +9,14 @@ import type { CardContent } from '../domain/types'
  *
  * What that check does *not* establish, and what this comment claimed until a
  * reviewer caught it: that a title is the canonical one. `redirects=1` follows
- * a redirect and reports success, so "Joconde" passes while the article is
- * actually called "La Joconde". The label a learner sees is the title written
- * here, which may be a redirect. The link always lands on the right article.
+ * the redirect and reports success either way, so a label could be a redirect
+ * and still pass. The link would still land on the right article; the label
+ * would simply not be the article's name.
+ *
+ * Measured separately on 2026-09-10, with the detector checked first against
+ * two known redirects and one invented title: none of the 48 labels here is a
+ * redirect. That is a fact about today's deck, not a property the check
+ * enforces — a new card can still be labelled with a redirect and pass.
  *
  * The answers were read against their sources once, on 2026-09-10, by someone
  * who did not write them. Three were wrong and are fixed. That is one review by

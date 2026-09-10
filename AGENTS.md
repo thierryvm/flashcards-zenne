@@ -111,11 +111,16 @@ makes a card **verifiable**, it does not prove the answer. That is a different
 order of guarantee from an unchecked claim, not an absolute one.
 
 **`redirects=1` proves the page exists, not that the title is canonical.** The
-deck comment claimed both until a reviewer noticed that "Joconde" is a redirect
-to "La Joconde". The API follows the redirect and reports success, so the check
-passes and the label stays wrong. Same family as reading `permissions` off the
-GitHub API, or asserting on `index.css` instead of the compiled stylesheet: the
-tool answered a question next to the one being asked.
+deck comment claimed both. The API follows the redirect and reports success
+either way, so a label that is a redirect passes the check unnoticed. Same
+family as reading `permissions` off the GitHub API, or asserting on `index.css`
+instead of the compiled stylesheet: the tool answered a question next to the one
+being asked.
+
+Measured on 2026-09-10 — detector validated first against two known redirects
+and one invented title — **none of the 48 current labels is a redirect**. The
+reasoning above still holds: that is a fact about today's deck, not something
+the check enforces.
 
 **The deck was read against its sources once**, on 2026-09-10, by someone who
 did not write it: 45 of 48 stood, three were wrong (a source that contradicted
