@@ -72,7 +72,40 @@ describe('StudyView', () => {
 
     const link = screen.getByRole('link', { name: /Vérifier/ })
     expect(link).toHaveAttribute('href', 'https://fr.wikipedia.org/wiki/Article_a')
+  })
+
+  /*
+   * A sighted person sees the new tab arrive and loses nothing by it; a
+   * screen-reader user gets no such signal, so the warning is announced rather
+   * than printed. This is an affordance announcement, not content — unlike the
+   * hint ladder, where two versions of the hint itself could drift apart.
+   */
+  it('announces the new tab without printing it on every card', async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(screen.getByRole('button', { name: 'Afficher la réponse' }))
+
+    const link = screen.getByRole('link', { name: /Vérifier/ })
     expect(link).toHaveAccessibleName(/nouvel onglet/)
+    expect(link.querySelector('.sr-only')).toHaveTextContent('(nouvel onglet)')
+  })
+
+  /*
+   * The question and the answer are 1.75 rem and 1.375 rem, which DESIGN.md
+   * fixes. Stepping the question back to `muted` on reveal leaves the answer as
+   * the only thing in full ink, so it dominates without touching the scale.
+   */
+  it('steps the question back once the answer is out', async () => {
+    const user = userEvent.setup()
+    setup()
+
+    const question = screen.getByRole('heading', { name: 'Question a ?' })
+    expect(question.className).not.toContain('text-muted')
+
+    await user.click(screen.getByRole('button', { name: 'Afficher la réponse' }))
+
+    expect(question.className).toContain('text-muted')
   })
 })
 
@@ -197,6 +230,18 @@ describe('StudyView grades', () => {
     expect(hard).toContain('bg-grade-hard')
     expect(good).toContain('bg-grade-good')
     expect(easy).not.toContain('bg-')
+  })
+
+  /*
+   * "Facile" was outlined in `muted`, the colour of "Tableau de bord" and
+   * "Quitter la séance". That put the fourth step of the scale in the same
+   * family as the navigation instead of next to "Correct". The outline is the
+   * 0 % step of the ramp, so it is bounded in the ramp's colour.
+   */
+  it('keeps all four inside the accent family, outline included', async () => {
+    for (const style of await revealed()) {
+      expect(style).toContain('border-accent')
+    }
   })
 
   it('uses no second hue, so nothing reads as a red failure', async () => {

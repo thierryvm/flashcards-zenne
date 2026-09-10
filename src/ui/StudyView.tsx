@@ -26,12 +26,17 @@ const SECONDARY = `${BUTTON} border-muted text-ink`
  * 100 / 70 / 45: at 70 % of the dark accent no label colour reaches 4.5:1
  * (3.34 with the ink, 4.35 with the paper). The order and the meaning are
  * unchanged; the numbers are what the contrast floor allows.
+ *
+ * All four are bounded in `accent`, including the bare one. Outlining "Facile"
+ * in `muted` made it match the navigation buttons instead of the scale, so the
+ * eye filed the fourth step with the commands rather than next to "Correct".
+ * The outline is the 0 % step of the same ramp, not a different kind of object.
  */
 const GRADE_STYLE: Record<ReviewGrade, string> = {
   [Rating.Again]: `${BUTTON} bg-accent text-accent-text border-accent`,
   [Rating.Hard]: `${BUTTON} bg-grade-hard text-ink border-accent`,
   [Rating.Good]: `${BUTTON} bg-grade-good text-ink border-accent`,
-  [Rating.Easy]: `${BUTTON} text-ink border-muted`,
+  [Rating.Easy]: `${BUTTON} border-accent text-ink`,
 }
 
 const TEXT_FIELD = 'input, textarea, select, [contenteditable="true"]'
@@ -135,12 +140,17 @@ export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps)
       </div>
 
       {/* The question sits on the paper, with no container. A box around it
-          would make it one object among several instead of the screen itself. */}
+          would make it one object among several instead of the screen itself.
+
+          Once the answer is out, the question steps back into `muted` so the
+          answer is the only thing left in full ink. That makes the answer
+          dominant without touching the type scale, and the pair stays readable
+          at a glance. */}
       <h2
         id="question-heading"
         ref={questionRef}
         tabIndex={-1}
-        className="font-serif text-question mt-6 text-balance"
+        className={`font-serif text-question mt-6 text-balance ${revealed ? 'text-muted' : ''}`}
       >
         {card.content.question}
       </h2>
@@ -198,6 +208,15 @@ export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps)
           {/*
             The source is what makes a card checkable rather than merely
             asserted. It sits after the answer so it never leaks the response.
+
+            The new-tab warning is announced but not printed, which is a
+            different call from the hint ladder even though it looks similar.
+            There, two versions of the *hint itself* could drift apart and one
+            of them was unreadable. Here the sentence is not content: it is an
+            affordance announcement, the same class as an aria-label. A sighted
+            person sees the new tab arrive and loses nothing; a screen-reader
+            user gets no such signal, so they keep the words. One string, no
+            drift, and twelve fewer interface asides per session.
           */}
           <p className="text-note mt-4">
             <a
@@ -207,7 +226,7 @@ export function StudyView({ queue, onReview, onFinish, onExit }: StudyViewProps)
               className="text-accent underline underline-offset-2"
             >
               Vérifier&nbsp;: {card.content.source.title}
-              <span className="text-muted"> (nouvel onglet)</span>
+              <span className="sr-only"> (nouvel onglet)</span>
             </a>
           </p>
 

@@ -60,10 +60,39 @@ describe('Dashboard', () => {
     expect(within(table).getByRole('rowheader', { name: /Sciences/ })).toBeInTheDocument()
   })
 
-  it('states theme progress in text, not only as a bar', () => {
-    setup()
+  it('states theme progress in text once there is progress to state', () => {
+    setup([reviewed(makeCard('a')), makeCard('b', 'sciences')])
 
     expect(screen.getAllByText(/% acquises sur/).length).toBeGreaterThan(0)
+  })
+
+  /*
+   * "Acquises", "En cours" and "À revoir" can only be zero before the first
+   * session. Eight themes made that twenty-four zeros on the very first screen
+   * anyone sees — the loudest thing on the page, and the least informative.
+   */
+  describe('before the first session', () => {
+    it('shows how many cards a theme holds and nothing else', () => {
+      setup()
+
+      const table = screen.getByRole('table')
+      expect(within(table).getByRole('columnheader', { name: 'Cartes' })).toBeInTheDocument()
+      expect(
+        within(table).queryByRole('columnheader', { name: 'Acquises' }),
+      ).not.toBeInTheDocument()
+      expect(
+        within(table).queryByRole('columnheader', { name: 'En cours' }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('brings the columns back once a card has been reviewed', () => {
+      setup([reviewed(makeCard('a')), makeCard('b', 'sciences')])
+
+      const table = screen.getByRole('table')
+      expect(within(table).getByRole('columnheader', { name: 'Acquises' })).toBeInTheDocument()
+      expect(within(table).getByRole('columnheader', { name: 'Non vues' })).toBeInTheDocument()
+      expect(within(table).queryByRole('columnheader', { name: 'Cartes' })).not.toBeInTheDocument()
+    })
   })
 
   it('starts a session on request', async () => {

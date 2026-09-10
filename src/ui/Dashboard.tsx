@@ -55,6 +55,8 @@ export function Dashboard({
   const upcoming = upcomingReviews(cards, now, 7)
   const retention = averageRetention(cards, scheduler, now)
   const available = summary.dueNow + summary.unseen
+  /** Nothing has left the "new" state yet, so every earned column reads zero. */
+  const started = summary.reviewed > 0
 
   return (
     <section className="max-w-reading mx-auto px-5 py-8 sm:px-8">
@@ -113,26 +115,39 @@ export function Dashboard({
       </p>
 
       <h3 className="font-serif text-answer mt-12">Par thème</h3>
+      {/*
+        Before the first session, "Acquises", "En cours" and "À revoir" can only
+        be zero — twenty-four numbers that carry no information on the very
+        first screen anyone sees. The column that does say something is how many
+        cards each theme holds. The rest appears once there is something to put
+        in it.
+      */}
       <table className="mt-4 w-full border-collapse text-left">
         <caption className="sr-only">
-          Répartition des cartes par thème : acquises, en cours, à revoir, non vues
+          {started
+            ? 'Répartition des cartes par thème : acquises, en cours, à revoir, non vues'
+            : 'Nombre de cartes par thème'}
         </caption>
         <thead>
           <tr className="text-muted text-label">
             <th scope="col" className="py-3 pr-4 font-semibold">
               Thème
             </th>
-            <th scope="col" className="py-3 pr-4 text-right font-semibold">
-              Acquises
-            </th>
-            <th scope="col" className="py-3 pr-4 text-right font-semibold">
-              En cours
-            </th>
-            <th scope="col" className="py-3 pr-4 text-right font-semibold">
-              À revoir
-            </th>
+            {started && (
+              <>
+                <th scope="col" className="py-3 pr-4 text-right font-semibold">
+                  Acquises
+                </th>
+                <th scope="col" className="py-3 pr-4 text-right font-semibold">
+                  En cours
+                </th>
+                <th scope="col" className="py-3 pr-4 text-right font-semibold">
+                  À revoir
+                </th>
+              </>
+            )}
             <th scope="col" className="py-3 text-right font-semibold">
-              Non vues
+              {started ? 'Non vues' : 'Cartes'}
             </th>
           </tr>
         </thead>
@@ -143,18 +158,24 @@ export function Dashboard({
                   0 %, and read as a failed underline rather than a gauge. */}
               <th scope="row" className="text-body py-3 pr-4 font-normal">
                 {THEME_LABELS[row.theme]}
-                <span className="sr-only">
-                  {' '}
-                  : {percent(row.mastered, row.total)} % acquises sur {row.total} cartes
-                </span>
+                {started && (
+                  <span className="sr-only">
+                    {' '}
+                    : {percent(row.mastered, row.total)} % acquises sur {row.total} cartes
+                  </span>
+                )}
               </th>
-              <Count value={row.mastered} />
-              <Count value={row.learning} />
-              <Count value={row.dueNow} />
+              {started && (
+                <>
+                  <Count value={row.mastered} />
+                  <Count value={row.learning} />
+                  <Count value={row.dueNow} />
+                </>
+              )}
               <td
                 className={`text-body py-3 text-right tabular-nums ${row.unseen === 0 ? 'text-muted' : ''}`}
               >
-                {row.unseen}
+                {started ? row.unseen : row.total}
               </td>
             </tr>
           ))}
