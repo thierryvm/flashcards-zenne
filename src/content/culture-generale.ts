@@ -4,13 +4,22 @@ import type { CardContent } from '../domain/types'
  * Sourced general-knowledge deck.
  *
  * Every card carries the reference article that lets a learner check it in one
- * click. The 48 article titles were validated against the MediaWiki API
- * (action=query&redirects=1): no missing page, redirects resolved to the
- * canonical title.
+ * click. The article titles were checked against the MediaWiki API
+ * (`action=query&redirects=1`): no missing page.
  *
- * Honest limit: a source makes a card *verifiable*, it does not prove the
- * answer. That is a different order of guarantee from an unchecked claim, not
- * an absolute one.
+ * What that check does *not* establish, and what this comment claimed until a
+ * reviewer caught it: that a title is the canonical one. `redirects=1` follows
+ * a redirect and reports success, so "Joconde" passes while the article is
+ * actually called "La Joconde". The label a learner sees is the title written
+ * here, which may be a redirect. The link always lands on the right article.
+ *
+ * The answers were read against their sources once, on 2026-09-10, by someone
+ * who did not write them. Three were wrong and are fixed. That is one review by
+ * one reader, not a guarantee.
+ *
+ * Honest limit, worth repeating: a source makes a card *verifiable*, it does not
+ * prove the answer. That is a different order of guarantee from an unchecked
+ * claim, not an absolute one.
  */
 
 /**
@@ -47,10 +56,11 @@ export const CULTURE_GENERALE: CardContent[] = [
   {
     id: 'hist-westphalie',
     theme: 'histoire',
-    question: 'À quelle guerre les traités de Westphalie mettent-ils fin en 1648 ?',
-    answer: 'La guerre de Trente Ans',
-    hint: "Un conflit qui a ravagé l'Europe centrale pendant trois décennies.",
-    elaboration: "On y voit souvent l'acte de naissance du système des États souverains modernes.",
+    question: 'À quelles guerres les traités de Westphalie mettent-ils fin en 1648 ?',
+    answer: 'À la guerre de Trente Ans et à la guerre de Quatre-Vingts Ans',
+    hint: "Un conflit qui a ravagé l'Europe centrale pendant trois décennies, et un autre plus au nord.",
+    elaboration:
+      "La seconde oppose l'Espagne aux Provinces-Unies, dont elle reconnaît l'indépendance. On voit souvent dans ces traités l'acte de naissance du système des États souverains modernes.",
     source: wiki('Traités de Westphalie'),
   },
   {
@@ -231,8 +241,8 @@ export const CULTURE_GENERALE: CardContent[] = [
     answer: 'Alfred Wegener',
     hint: 'Un météorologue allemand, longtemps moqué.',
     elaboration:
-      'Il lui manquait un moteur crédible ; la tectonique des plaques le fournira dans les années 1960.',
-    source: wiki('Tectonique des plaques'),
+      'Présentée le 6 janvier 1912. Il lui manquait un moteur crédible ; la tectonique des plaques le fournira dans les années 1960.',
+    source: wiki('Dérive des continents'),
   },
   {
     id: 'sci-penicilline',
@@ -311,7 +321,7 @@ export const CULTURE_GENERALE: CardContent[] = [
     answer: "L'Ode à la joie de Schiller",
     hint: "Sa mélodie est devenue l'hymne européen.",
     elaboration:
-      "C'est la première fois qu'un grand symphoniste introduit des voix dans le finale d'une symphonie.",
+      'Créée en 1824, elle fait entrer un chœur et quatre voix solistes dans son finale ; les huit symphonies précédentes de Beethoven sont purement instrumentales.',
     source: wiki('Symphonie no 9 de Beethoven'),
   },
 

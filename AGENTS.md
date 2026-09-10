@@ -102,12 +102,26 @@ message. `storageHealthy` is what keeps the reassuring copy honest.
 
 **Every card must carry a source.** `CardContent.source` is required, so the
 rule lives in the compiler rather than in a review checklist: a card with no
-reference does not compile. The 48 article titles were validated against the
-MediaWiki API (`action=query&redirects=1`).
+reference does not compile. `culture-generale.test.ts` keeps that enforced with
+a `@ts-expect-error` on an unsourced card — the attempt that must fail, kept
+permanently instead of run once by hand.
 
 The honest limit, worth repeating because it is easy to overclaim: a source
 makes a card **verifiable**, it does not prove the answer. That is a different
 order of guarantee from an unchecked claim, not an absolute one.
+
+**`redirects=1` proves the page exists, not that the title is canonical.** The
+deck comment claimed both until a reviewer noticed that "Joconde" is a redirect
+to "La Joconde". The API follows the redirect and reports success, so the check
+passes and the label stays wrong. Same family as reading `permissions` off the
+GitHub API, or asserting on `index.css` instead of the compiled stylesheet: the
+tool answered a question next to the one being asked.
+
+**The deck was read against its sources once**, on 2026-09-10, by someone who
+did not write it: 45 of 48 stood, three were wrong (a source that contradicted
+its own card, an unfalsifiable superlative, an incomplete answer). One review by
+one reader. Whoever writes cards must not be the one who signs them off — that
+is why the check happens off this machine.
 
 `culture-generale.test.ts` also guards the copy. A previous sourced import
 arrived with its apostrophes flattened into spaces ("L ete d une annee"), which
