@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { THEME_LABELS, type StudyCard } from '../domain/types'
 import { summarise } from '../domain/queue'
 import { averageRetention, statsByTheme, upcomingReviews, type UpcomingDay } from '../domain/stats'
@@ -11,6 +12,12 @@ export interface DashboardProps {
   /** False when storage failed: an empty deck must not read as a finished one. */
   storageHealthy?: boolean
   now?: Date
+  /**
+   * Backup controls, passed in rather than imported. The dashboard is a view
+   * over cards it is handed; giving it its own database access would make every
+   * test of it a test of IndexedDB too.
+   */
+  backup?: ReactNode
 }
 
 const DAY_LABEL = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric' })
@@ -49,6 +56,7 @@ export function Dashboard({
   onStart,
   storageHealthy = true,
   now = new Date(),
+  backup,
 }: DashboardProps) {
   const summary = summarise(cards, now)
   const themes = statsByTheme(cards, now)
@@ -220,6 +228,8 @@ export function Dashboard({
         Votre progression reste sur cet appareil, dans ce navigateur. Elle ne vous suivra pas sur un
         autre téléphone ou un autre ordinateur, et effacer les données du site l’efface aussi.
       </p>
+
+      {backup}
     </section>
   )
 }

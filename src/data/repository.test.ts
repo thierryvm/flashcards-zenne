@@ -1,8 +1,15 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { loadReviews, loadStudyCards, recordReview, resetProgress } from './repository'
+import {
+  importJournal,
+  loadReviews,
+  loadStudyCards,
+  recordReview,
+  resetProgress,
+} from './repository'
 import { db } from './db'
-import { createScheduler, Rating, type FsrsCard, type ReviewGrade } from '../domain/scheduler'
+import { replayJournal } from '../domain/journal'
+import { createScheduler, Rating, type ReviewGrade } from '../domain/scheduler'
 import type { CardContent, CardProgress, ReviewEvent } from '../domain/types'
 
 const scheduler = createScheduler()
@@ -92,27 +99,7 @@ describe('recordReview', () => {
 /*
  * The claim the journal is there to support: the derived state can be thrown
  * away and rebuilt from the recorded facts alone.
- *
- * The replay lives here rather than in `domain/`, because nothing in the app
- * calls it yet and an exported function with no caller is dead code. When sync
- * or import is built, it moves — this test is what says the data is sufficient
- * for it to exist at all.
  */
-function replay(journal: readonly ReviewEvent[]): CardProgress | null {
-  let progress: CardProgress | null = null
-
-  for (const entry of journal) {
-    const previous: FsrsCard = progress?.fsrs ?? scheduler.create(entry.reviewedAt)
-    progress = {
-      cardId: entry.cardId,
-      fsrs: scheduler.review(previous, entry.grade, entry.reviewedAt),
-      updatedAt: entry.reviewedAt,
-    }
-  }
-
-  return progress
-}
-
 describe('replaying the journal', () => {
   it('rebuilds exactly the state the reviews produced', async () => {
     let live = fresh(T0)
@@ -121,9 +108,9 @@ describe('replaying the journal', () => {
     live = await review(live, Rating.Good, minutes(30))
     live = await review(live, Rating.Easy, minutes(90))
 
-    const rebuilt = replay(await loadReviews())
+    const rebuilt = replayJournal(await loadReviews(), scheduler)
 
-    expect(rebuilt).toEqual(live)
+    expect(rebuilt).toEqual([live])
   })
 
   /*
@@ -159,7 +146,94 @@ describe('replaying the journal', () => {
     expect(merged.map((entry) => entry.reviewedAt)).toEqual(
       expected.map((entry) => entry.reviewedAt),
     )
-    expect(replay(merged)).toEqual(together)
+    expect(replayJournal(merged, scheduler)).toEqual([together])
+  })
+})
+
+/*
+ * Folding another device's reviews into this one. The property that matters is
+ * that this is a merge and not a restore: nothing is overwritten, and a file
+ * already imported adds nothing the second time.
+ */
+describe('importJournal', () => {
+  function elsewhere(at: Date, grade: ReviewGrade, cardId = 'carte-b'): ReviewEvent {
+    return { cardId, reviewedAt: at, grade }
+  }
+
+  it('adds the reviews this device did not have', async () => {
+    await review(fresh(T0), Rating.Good, minutes(1))
+
+    const outcome = await importJournal(
+      [elsewhere(minutes(5), Rating.Again), elsewhere(minutes(6), Rating.Good)],
+      scheduler,
+    )
+
+    expect(outcome).toEqual({ added: 2, total: 3 })
+    expect(await loadReviews()).toHaveLength(3)
+  })
+
+  it('changes nothing when the same file is imported twice', async () => {
+    const file = [elsewhere(minutes(5), Rating.Again), elsewhere(minutes(6), Rating.Good)]
+
+    const first = await importJournal(file, scheduler)
+    const before = await db.progress.get('carte-b')
+
+    const second = await importJournal(file, scheduler)
+
+    expect(first).toEqual({ added: 2, total: 2 })
+    expect(second).toEqual({ added: 0, total: 2 })
+    expect(await loadReviews()).toHaveLength(2)
+    expect(await db.progress.get('carte-b')).toEqual(before)
+  })
+
+  it('never loses a review this device already held', async () => {
+    let progress = fresh(T0)
+    progress = await review(progress, Rating.Good, minutes(1))
+    await review(progress, Rating.Hard, minutes(20))
+
+    await importJournal([elsewhere(minutes(10), Rating.Good, CARD.id)], scheduler)
+
+    const journal = await loadReviews()
+    expect(journal.map((entry) => entry.reviewedAt)).toEqual([minutes(1), minutes(10), minutes(20)])
+  })
+
+  /*
+   * The whole point: a review that happened *between* two local ones is not
+   * appended at the end, it takes its place in the story and the schedule is
+   * recomputed as if it had always been there.
+   */
+  it('rebuilds the schedule a single device would have reached', async () => {
+    let together = fresh(T0)
+    together = await review(together, Rating.Good, minutes(1))
+    together = await review(together, Rating.Again, minutes(7))
+    together = await review(together, Rating.Good, minutes(20))
+    const expected = await db.progress.get(CARD.id)
+    await resetProgress()
+
+    // Same facts, split across two devices, arriving in the wrong order.
+    let here = fresh(T0)
+    here = await review(here, Rating.Good, minutes(1))
+    await review(here, Rating.Good, minutes(20))
+    await importJournal([elsewhere(minutes(7), Rating.Again, CARD.id)], scheduler)
+
+    expect(await db.progress.get(CARD.id)).toEqual(expected)
+  })
+
+  it('brings the learner’s notes along', async () => {
+    await importJournal(
+      [{ cardId: 'carte-b', reviewedAt: minutes(5), grade: Rating.Good, note: 'Retenu ainsi.' }],
+      scheduler,
+    )
+
+    expect((await db.progress.get('carte-b'))?.note).toBe('Retenu ainsi.')
+  })
+
+  it('leaves cards absent from the file untouched', async () => {
+    const mine = await review(fresh(T0), Rating.Good, minutes(1))
+
+    await importJournal([elsewhere(minutes(5), Rating.Good)], scheduler)
+
+    expect(await db.progress.get(CARD.id)).toEqual(mine)
   })
 })
 

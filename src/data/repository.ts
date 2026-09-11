@@ -1,6 +1,7 @@
 import { CULTURE_GENERALE } from '../content/culture-generale'
 import type { CardContent, CardProgress, ReviewEvent, StudyCard } from '../domain/types'
 import type { Scheduler } from '../domain/scheduler'
+import { mergeJournals, replayJournal, reviewKey } from '../domain/journal'
 import { db } from './db'
 
 /**
@@ -45,6 +46,50 @@ export async function recordReview(progress: CardProgress, review: ReviewEvent):
 /** Every review ever recorded, oldest first. The order is what makes it replayable. */
 export async function loadReviews(): Promise<ReviewEvent[]> {
   return db.reviews.orderBy('reviewedAt').toArray()
+}
+
+export interface ImportOutcome {
+  /** Reviews this device did not already have. */
+  added: number
+  /** Reviews it holds afterwards. */
+  total: number
+}
+
+/**
+ * Folds reviews from another device into this one.
+ *
+ * Union and replay, never overwrite. Reviews already held are recognised by
+ * `reviewKey` and skipped, so importing the same file twice changes nothing —
+ * which is the difference between a merge and a restore.
+ *
+ * The journal stays append-only: only genuinely new reviews are written. The
+ * schedule is then recomputed from the whole journal rather than patched,
+ * because a schedule folded from reviews arriving out of order is not the
+ * schedule those reviews describe.
+ *
+ * One limit, and it fades as the journal fills: a card reviewed *before* the
+ * journal existed has state but no facts behind it. If the journal also holds
+ * later reviews of that card, the replay rebuilds it from those alone, and the
+ * earlier history is not accounted for. Cards absent from the journal are left
+ * untouched.
+ */
+export async function importJournal(
+  incoming: readonly ReviewEvent[],
+  scheduler: Scheduler,
+): Promise<ImportOutcome> {
+  return db.transaction('rw', db.progress, db.reviews, async () => {
+    const kept = await db.reviews.orderBy('reviewedAt').toArray()
+    const known = new Set(kept.map(reviewKey))
+    const merged = mergeJournals(kept, incoming)
+    const fresh = merged.filter((review) => !known.has(reviewKey(review)))
+
+    if (fresh.length > 0) {
+      await db.reviews.bulkAdd(fresh)
+      await db.progress.bulkPut(replayJournal(merged, scheduler))
+    }
+
+    return { added: fresh.length, total: merged.length }
+  })
 }
 
 /**
