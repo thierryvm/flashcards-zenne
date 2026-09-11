@@ -84,6 +84,13 @@ export interface ReviewEvent {
   cardId: string
   reviewedAt: Date
   grade: ReviewGrade
+  /**
+   * The learner's explanation as it stood at that review, or absent if they had
+   * none. Journalled rather than kept only in `CardProgress`, so that replaying
+   * rebuilds the whole of it: a note is something a person wrote, and an export
+   * that carried the schedule but dropped the words would be a poor bargain.
+   */
+  note?: string
 }
 
 export interface CardProgress {

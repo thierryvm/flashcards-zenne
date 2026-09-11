@@ -164,8 +164,22 @@ Two consequences for anyone touching this code:
 - **Both writes go in one transaction.** A journal that can miss an entry is
   worse than none: it looks replayable and rebuilds the wrong schedule.
 
-Keeping the journal commits to nothing — it is a storage decision, not a product
-one. Export, accounts and pairing remain open, and remain Thierry's call.
+**A file carries the journal, never the schedule.** Export writes the reviews;
+import merges by union and replays. That is what makes it a merge rather than a
+restore: a schedule is an opinion about the future and two of them cannot be
+combined, while two sets of facts always can. `reviewKey` is what makes the
+operation idempotent — importing the same file twice adds nothing, and
+`repository.test.ts` asserts it.
+
+The honest limit, and it belongs in the README rather than buried here: a manual
+export only protects someone who remembers to do it. Accounts and a server are
+what would remove that condition, and that decision is Thierry's.
+
+**After a deploy, the first load runs the previous version.** The service worker
+serves its cached bundle, and the new one takes over on the next load. Measured
+while testing the v1 → v2 migration: the database was still at version 10 and the
+script served was the previous hash. Reload twice before concluding a change did
+not ship. Issue #20 has the details and why an update prompt was not built.
 
 ## Visual direction
 

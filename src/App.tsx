@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { StudyView } from './ui/StudyView'
 import { Dashboard } from './ui/Dashboard'
+import { Backup } from './ui/Backup'
 import { buildQueue, DEFAULT_SESSION_LIMIT } from './domain/queue'
 import { createScheduler, type ReviewGrade } from './domain/scheduler'
 import { readSeed } from './domain/seed'
@@ -46,6 +47,14 @@ export default function App() {
     }
   }, [scheduler])
 
+  // After an import the stored schedule has changed under us, so the dashboard
+  // has to be rebuilt from the database rather than from what it had in hand.
+  const reload = useCallback(() => {
+    loadStudyCards(scheduler)
+      .then(setCards)
+      .catch(() => setStorageFailure('load'))
+  }, [scheduler])
+
   const start = useCallback(() => {
     setQueue(buildQueue(cards, { limit: DEFAULT_SESSION_LIMIT, seed: pinnedSeed ?? Date.now() }))
     setReviewedCount(0)
@@ -75,7 +84,7 @@ export default function App() {
         ),
       )
       setReviewedCount((count) => count + 1)
-      recordReview(next, { cardId: card.content.id, reviewedAt, grade }).catch(() =>
+      recordReview(next, { cardId: card.content.id, reviewedAt, grade, note }).catch(() =>
         setStorageFailure('save'),
       )
     },
@@ -148,6 +157,7 @@ export default function App() {
             sessionLimit={DEFAULT_SESSION_LIMIT}
             onStart={start}
             storageHealthy={storageFailure === null}
+            backup={<Backup scheduler={scheduler} onImported={reload} />}
           />
         )}
 

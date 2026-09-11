@@ -40,6 +40,29 @@ s'installe comme une application depuis le menu du navigateur.
 Tout reste sur votre appareil, dans le stockage local du navigateur. Pas de
 compte, pas de serveur, aucune donnée envoyée nulle part.
 
+## Sauvegarder et transférer
+
+Le tableau de bord propose d'exporter vos révisions dans un fichier, et de
+réimporter un fichier venu d'un autre appareil.
+
+Le fichier contient **le journal de vos révisions**, pas votre planning. Le
+planning est recalculé à l'import : c'est ce qui permet à deux fichiers de se
+**combiner** au lieu que l'un écrase l'autre. Une révision est un fait daté ;
+deux appareils produisent deux listes de faits, et la réunion des deux, triée
+par date et rejouée, donne exactement le planning qu'un appareil unique aurait
+atteint. Importer deux fois le même fichier ne change rien.
+
+**Sa faiblesse, dite franchement : un export manuel ne protège que si vous le
+faites.** Il n'y a pas de sauvegarde automatique. Si vous perdez votre téléphone
+sans avoir exporté, la progression est perdue. Et sur iPhone, le navigateur
+efface le stockage d'un site après environ sept jours d'utilisation de Safari
+sans y revenir — deux semaines sans réviser peuvent suffire, sans qu'aucun
+accident ne soit nécessaire.
+
+Autrement dit : ça couvre la perte **tant qu'on y pense**. Une synchronisation
+automatique demanderait un compte et un serveur ; c'est une décision qui n'est
+pas prise.
+
 ## Chaque carte porte sa source
 
 Les 48 cartes renvoient à l'article de référence qui permet de les vérifier en
@@ -95,6 +118,14 @@ npm run preview
 
 Une astuce utile pour comparer deux captures d'écran : `?graine=42` fige
 l'ordre des cartes d'une séance. La graine s'affiche alors dans le bandeau.
+
+**À savoir en déboguant un déploiement : le premier chargement sert la version
+précédente.** L'application est une PWA avec un service worker qui met ses
+fichiers en cache. Après un déploiement, le premier chargement sert donc encore
+l'ancienne version ; la nouvelle prend la main au rechargement suivant. Ce n'est
+pas un cache à vider, c'est le fonctionnement de `registerType: 'autoUpdate'`.
+Rechargez deux fois avant de conclure qu'un changement n'est pas parti — voir
+[l'issue #20](https://github.com/thierryvm/reperes/issues/20).
 
 Pour contribuer — commandes, structure du code, conventions et décisions
 techniques — voir [AGENTS.md](./AGENTS.md). La direction artistique a son propre
