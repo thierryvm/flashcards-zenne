@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { buildQueue, DEFAULT_SESSION_LIMIT } from './domain/queue'
 import { SEED_PARAMETER } from './domain/seed'
+import { Rating } from './domain/scheduler'
 import type { CardContent, ThemeId } from './domain/types'
 
 const CARD: CardContent = {
@@ -16,11 +17,12 @@ const CARD: CardContent = {
 }
 
 const loadStudyCards = vi.fn()
-const saveProgress = vi.fn()
+const recordReview = vi.fn()
 
 vi.mock('./data/repository', () => ({
   loadStudyCards: (...args: unknown[]) => loadStudyCards(...args),
-  saveProgress: (...args: unknown[]) => saveProgress(...args),
+  recordReview: (...args: unknown[]) => recordReview(...args),
+  loadReviews: vi.fn(),
   resetProgress: vi.fn(),
 }))
 
@@ -28,8 +30,8 @@ vi.mock('./content/culture-generale', () => ({ CULTURE_GENERALE: [CARD] }))
 
 beforeEach(() => {
   loadStudyCards.mockReset()
-  saveProgress.mockReset()
-  saveProgress.mockResolvedValue(undefined)
+  recordReview.mockReset()
+  recordReview.mockResolvedValue(undefined)
   window.history.replaceState({}, '', '/')
 })
 
@@ -107,7 +109,7 @@ describe('App storage failures', () => {
   it('says so when a review cannot be written', async () => {
     const user = userEvent.setup()
     loadWith([studyCard()])
-    saveProgress.mockRejectedValue(new Error('quota exceeded'))
+    recordReview.mockRejectedValue(new Error('quota exceeded'))
 
     render(<App />)
 
@@ -126,6 +128,47 @@ describe('App storage failures', () => {
 
     await screen.findByRole('button', { name: /Commencer une séance/ })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+/*
+ * A review is written twice: as a fact in the journal, and as the state it
+ * produced. The two must carry the same instant. Taking `new Date()` a second
+ * time would leave a journal whose timestamps are close to, but not the same
+ * as, the ones the intervals were computed from — and a replay would drift
+ * away from the state it is meant to rebuild, silently.
+ */
+describe('App review journal', () => {
+  it('records the review as a fact alongside the state it produced', async () => {
+    const user = userEvent.setup()
+    loadWith([studyCard()])
+
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /Commencer une séance/ }))
+    await user.click(screen.getByRole('button', { name: 'Afficher la réponse' }))
+    await user.click(screen.getByRole('button', { name: /^Correct/ }))
+
+    expect(recordReview).toHaveBeenCalledOnce()
+    const [, event] = recordReview.mock.calls[0]
+    expect(event.cardId).toBe(CARD.id)
+    expect(event.grade).toBe(Rating.Good)
+  })
+
+  it('uses one instant for the schedule and the journal', async () => {
+    const user = userEvent.setup()
+    loadWith([studyCard()])
+
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /Commencer une séance/ }))
+    await user.click(screen.getByRole('button', { name: 'Afficher la réponse' }))
+    await user.click(screen.getByRole('button', { name: /^Correct/ }))
+
+    const [progress, event] = recordReview.mock.calls[0]
+    expect(event.reviewedAt).toEqual(progress.updatedAt)
+    // The instant FSRS actually computed from, not one taken nearby.
+    expect(progress.fsrs.last_review).toEqual(event.reviewedAt)
   })
 })
 

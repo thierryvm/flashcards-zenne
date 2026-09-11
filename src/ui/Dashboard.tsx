@@ -208,6 +208,18 @@ export function Dashboard({
           )
         })}
       </ul>
+
+      {/*
+        Where the data lives, and what that means. The second sentence is the
+        point: "stockage local" is not something a learner translates into
+        consequences on their own, and finding out by opening the app on another
+        device — where everything reads as untouched — is the worst way to learn
+        it. Stated calmly and once, not as an alert: nothing is broken.
+      */}
+      <p className="border-line text-muted text-note mt-12 border-t pt-6">
+        Votre progression reste sur cet appareil, dans ce navigateur. Elle ne vous suivra pas sur un
+        autre téléphone ou un autre ordinateur, et effacer les données du site l’efface aussi.
+      </p>
     </section>
   )
 }

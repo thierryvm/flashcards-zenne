@@ -137,6 +137,36 @@ elided articles. It catches flattened apostrophes, not missing accents.
 device. That is also why v0 needed no privacy review to ship. Sync and accounts
 are a later phase and must be designed and approved before any code is written.
 
+**Reviews are facts and are appended; the schedule is derived and is replaced.**
+`reviews` is append-only — `(cardId, reviewedAt, grade)`, never edited. `progress`
+holds one row per card and is overwritten every time.
+
+The distinction is what makes a future merge possible at all. Derived states
+cannot be merged: two devices each hold a schedule computed from half the
+reviews, and picking a winner throws away real history. Journals can, because
+they hold immutable facts — the union of two disjoint journals, sorted by time
+and replayed, gives the schedule a single device would have reached. Chronology
+decides, so there is nothing to arbitrate. `repository.test.ts` asserts exactly
+that, by splitting one sequence across two devices and replaying the union.
+
+Measured in a real browser on 2026-09-11, before the journal existed: two
+reviews of the same card left **one** row, `reps` going 1 to 2, the first
+review's time and grade present nowhere. Every review taken before the journal
+shipped is unrecoverable — which is why it went in before the deck was used in
+earnest, not after.
+
+Two consequences for anyone touching this code:
+
+- **`reviewedAt` must be the same instant handed to the scheduler.** Calling
+  `new Date()` a second time leaves a journal whose timestamps are near, but not
+  equal to, the ones the intervals were computed from; a replay then drifts
+  away from the state it is supposed to rebuild, silently.
+- **Both writes go in one transaction.** A journal that can miss an entry is
+  worse than none: it looks replayable and rebuilds the wrong schedule.
+
+Keeping the journal commits to nothing — it is a storage decision, not a product
+one. Export, accounts and pairing remain open, and remain Thierry's call.
+
 ## Visual direction
 
 `DESIGN.md` has authority over visual choices and every deviation belongs in the

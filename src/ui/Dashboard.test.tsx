@@ -120,6 +120,21 @@ describe('Dashboard', () => {
     expect(screen.getByRole('button', { name: /Commencer une séance/ })).toBeEnabled()
   })
 
+  /*
+   * Measured on 2026-09-11: a second browser profile shows a pristine app, and
+   * nothing anywhere tells the learner why. "Stockage local" is not something
+   * someone translates into consequences on their own, and discovering it by
+   * opening the app on another device — where everything reads as untouched —
+   * is the worst way to find out.
+   */
+  it('says where the progress lives, and what that means', () => {
+    setup()
+
+    const note = screen.getByText(/reste sur cet appareil/)
+    expect(note).toBeInTheDocument()
+    expect(note).toHaveTextContent(/ne vous suivra pas/)
+  })
+
   it('has no accessibility violations', async () => {
     const { container } = setup()
 
