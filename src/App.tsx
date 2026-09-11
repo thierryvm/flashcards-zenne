@@ -4,7 +4,7 @@ import { Dashboard } from './ui/Dashboard'
 import { buildQueue, DEFAULT_SESSION_LIMIT } from './domain/queue'
 import { createScheduler, type ReviewGrade } from './domain/scheduler'
 import { readSeed } from './domain/seed'
-import { loadStudyCards, saveProgress } from './data/repository'
+import { loadStudyCards, recordReview } from './data/repository'
 import type { StudyCard } from './domain/types'
 
 type Phase = 'loading' | 'home' | 'study' | 'done'
@@ -56,13 +56,18 @@ export default function App() {
 
   const handleReview = useCallback(
     (card: StudyCard, grade: ReviewGrade, note: string | undefined) => {
+      // One instant, used by the scheduler and written to the journal. Taking
+      // `new Date()` twice would leave a journal whose timestamps are close to,
+      // but not the same as, the ones the intervals were computed from — and a
+      // replay would drift away from the state it is meant to rebuild.
+      const reviewedAt = new Date()
       const next = {
         cardId: card.content.id,
-        fsrs: scheduler.review(card.progress.fsrs, grade),
+        fsrs: scheduler.review(card.progress.fsrs, grade, reviewedAt),
         // Taken verbatim, so emptying the field clears the note. Falling back
         // to the previous value made a note impossible to delete.
         note,
-        updatedAt: new Date(),
+        updatedAt: reviewedAt,
       }
       setCards((current) =>
         current.map((entry) =>
@@ -70,7 +75,9 @@ export default function App() {
         ),
       )
       setReviewedCount((count) => count + 1)
-      saveProgress(next).catch(() => setStorageFailure('save'))
+      recordReview(next, { cardId: card.content.id, reviewedAt, grade }).catch(() =>
+        setStorageFailure('save'),
+      )
     },
     [scheduler],
   )

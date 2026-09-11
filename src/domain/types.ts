@@ -1,4 +1,5 @@
 import type { Card as FsrsCard } from 'ts-fsrs'
+import type { ReviewGrade } from './scheduler'
 
 export const THEMES = [
   'histoire',
@@ -59,6 +60,30 @@ export interface CardContent {
    * rule in the compiler rather than in a review checklist.
    */
   source: CardSource
+}
+
+/**
+ * One review, as it happened. Immutable by construction: a fact about the past,
+ * never edited and never deleted.
+ *
+ * This is the only thing worth keeping if the schedule ever has to be rebuilt.
+ * `CardProgress` below is *derived* — it is what FSRS computed from the reviews
+ * so far, and each new review overwrites it, so the individual reviews are gone
+ * the moment they are folded in. Two devices produce two disjoint journals;
+ * merging them is the union of the lines, sorted by time, replayed. There is
+ * nothing to arbitrate, because chronology decides. Merging two derived states,
+ * on the other hand, has no correct answer.
+ *
+ * `reviewedAt` must be the very instant handed to the scheduler, not a second
+ * one taken nearby: a replay that uses a different timestamp computes different
+ * intervals and quietly stops reproducing the state it is supposed to rebuild.
+ */
+export interface ReviewEvent {
+  /** Assigned by the database. Absent until the row is written. */
+  id?: number
+  cardId: string
+  reviewedAt: Date
+  grade: ReviewGrade
 }
 
 export interface CardProgress {

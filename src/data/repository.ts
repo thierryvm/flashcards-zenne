@@ -1,5 +1,5 @@
 import { CULTURE_GENERALE } from '../content/culture-generale'
-import type { CardContent, CardProgress, StudyCard } from '../domain/types'
+import type { CardContent, CardProgress, ReviewEvent, StudyCard } from '../domain/types'
 import type { Scheduler } from '../domain/scheduler'
 import { db } from './db'
 
@@ -26,11 +26,36 @@ export async function loadStudyCards(
   }))
 }
 
-export async function saveProgress(progress: CardProgress): Promise<void> {
-  await db.progress.put(progress)
+/**
+ * Records one review: the fact in the journal, the state it produced in
+ * `progress`.
+ *
+ * Both in a single transaction, deliberately. A journal that can silently miss
+ * an entry is worse than no journal at all: it would look replayable and
+ * rebuild the wrong schedule. Either the review is remembered on both sides or
+ * the caller is told it failed.
+ */
+export async function recordReview(progress: CardProgress, review: ReviewEvent): Promise<void> {
+  await db.transaction('rw', db.progress, db.reviews, async () => {
+    await db.reviews.add(review)
+    await db.progress.put(progress)
+  })
 }
 
-/** Wipes local scheduling state. The learner owns their data and can drop it. */
+/** Every review ever recorded, oldest first. The order is what makes it replayable. */
+export async function loadReviews(): Promise<ReviewEvent[]> {
+  return db.reviews.orderBy('reviewedAt').toArray()
+}
+
+/**
+ * Wipes local scheduling state. The learner owns their data and can drop it.
+ *
+ * The journal goes too. Leaving it would mean a "reset" that a later replay
+ * could undo, which is not what anyone asking to erase their data means.
+ */
 export async function resetProgress(): Promise<void> {
-  await db.progress.clear()
+  await db.transaction('rw', db.progress, db.reviews, async () => {
+    await db.progress.clear()
+    await db.reviews.clear()
+  })
 }
