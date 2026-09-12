@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -173,7 +173,7 @@ describe('App review journal', () => {
 })
 
 describe('App navigation', () => {
-  it('offers a way back to the dashboard during a session', async () => {
+  it('offers a way back home during a session', async () => {
     const user = userEvent.setup()
     loadWith([studyCard()])
 
@@ -182,17 +182,84 @@ describe('App navigation', () => {
     await user.click(await screen.findByRole('button', { name: /Commencer une séance/ }))
     expect(screen.getByRole('heading', { name: 'Question de test ?' })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Tableau de bord' }))
-    expect(screen.getByRole('heading', { name: 'Votre progression' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Accueil' }))
+    expect(screen.getByRole('heading', { name: 'Aujourd’hui' })).toBeInTheDocument()
   })
 
-  it('hides the dashboard link when already on the dashboard', async () => {
+  it('hides the way back when already home', async () => {
     loadWith([studyCard()])
 
     render(<App />)
 
     await screen.findByRole('button', { name: /Commencer une séance/ })
-    expect(screen.queryByRole('button', { name: 'Tableau de bord' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Accueil' })).not.toBeInTheDocument()
+  })
+})
+
+/*
+ * The progress page has an address. That is the whole point of the split: it
+ * can be bookmarked, reached with Back, and refreshed — none of which a piece
+ * of component state offers.
+ */
+describe('App routing', () => {
+  async function renderAt(hash: string) {
+    window.history.replaceState({}, '', hash)
+    loadWith([studyCard()])
+    const view = render(<App />)
+    await screen.findByRole('heading', { level: 2 })
+    return view
+  }
+
+  it('opens the progress page at its own address', async () => {
+    await renderAt('#/progression')
+
+    expect(screen.getByRole('heading', { name: 'Votre progression' })).toBeInTheDocument()
+    expect(screen.getByRole('table')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Commencer une séance/ })).not.toBeInTheDocument()
+  })
+
+  it('opens home at the root address', async () => {
+    await renderAt('#/')
+
+    expect(screen.getByRole('heading', { name: 'Aujourd’hui' })).toBeInTheDocument()
+  })
+
+  // A stale bookmark is not an error state: there is nothing a learner could do
+  // with "page inconnue", and home is always a correct answer to "where am I".
+  it('lands home on an address it does not know', async () => {
+    await renderAt('#/tableau-de-bord')
+
+    expect(screen.getByRole('heading', { name: 'Aujourd’hui' })).toBeInTheDocument()
+  })
+
+  it('follows the address when it changes under it', async () => {
+    await renderAt('#/')
+
+    await act(async () => {
+      window.location.hash = '#/progression'
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
+    })
+
+    expect(screen.getByRole('heading', { name: 'Votre progression' })).toBeInTheDocument()
+  })
+
+  /*
+   * A session has no address of its own — its queue lives in memory and would
+   * not survive a refresh. So starting one from the progress page has to put
+   * the address back, or Back would return to a page the app is not showing.
+   */
+  it('drops the progress address when a session starts', async () => {
+    const user = userEvent.setup()
+    await renderAt('#/progression')
+
+    await act(async () => {
+      window.location.hash = '#/'
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
+    })
+    await user.click(screen.getByRole('button', { name: /Commencer une séance/ }))
+
+    expect(screen.getByRole('heading', { name: 'Question de test ?' })).toBeInTheDocument()
+    expect(window.location.hash).toBe('#/')
   })
 })
 
