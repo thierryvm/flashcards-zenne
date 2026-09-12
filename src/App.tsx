@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { StudyView } from './ui/StudyView'
-import { Dashboard } from './ui/Dashboard'
+import { Home } from './ui/Home'
+import { Progress } from './ui/Progress'
 import { Backup } from './ui/Backup'
 import { buildQueue, DEFAULT_SESSION_LIMIT } from './domain/queue'
 import { createScheduler, type ReviewGrade } from './domain/scheduler'
 import { readSeed } from './domain/seed'
+import { hashFor, readRoute, type Route } from './domain/route'
 import { loadStudyCards, recordReview } from './data/repository'
 import type { StudyCard } from './domain/types'
 
@@ -25,6 +27,15 @@ export default function App() {
   const [reviewedCount, setReviewedCount] = useState(0)
   const [phase, setPhase] = useState<Phase>('loading')
   const [storageFailure, setStorageFailure] = useState<StorageFailure | null>(null)
+  const [route, setRoute] = useState<Route>(() => readRoute(window.location.hash))
+
+  // The address bar is the source of truth for the page, so that Back, a
+  // bookmark and a middle click all behave like they do anywhere else.
+  useEffect(() => {
+    const sync = () => setRoute(readRoute(window.location.hash))
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -58,10 +69,16 @@ export default function App() {
   const start = useCallback(() => {
     setQueue(buildQueue(cards, { limit: DEFAULT_SESSION_LIMIT, seed: pinnedSeed ?? Date.now() }))
     setReviewedCount(0)
+    // A session is not a route, so the address must not keep claiming the
+    // progress page while a question is on screen.
+    if (window.location.hash !== hashFor('accueil')) window.location.hash = hashFor('accueil')
     setPhase('study')
   }, [cards, pinnedSeed])
 
-  const goHome = useCallback(() => setPhase('home'), [])
+  const goHome = useCallback(() => {
+    if (window.location.hash !== hashFor('accueil')) window.location.hash = hashFor('accueil')
+    setPhase('home')
+  }, [])
 
   const handleReview = useCallback(
     (card: StudyCard, grade: ReviewGrade, note: string | undefined) => {
@@ -108,7 +125,8 @@ export default function App() {
             {pinnedSeed !== null && <p className="text-muted text-note">graine {pinnedSeed}</p>}
           </div>
           {/* Always a way back. Nothing is lost by leaving: each graded card is
-              persisted as it is answered. */}
+              persisted as it is answered. A session has no address, so leaving
+              it is a button; the progress page has one, so it is a link. */}
           {phase !== 'home' && phase !== 'loading' && (
             <nav>
               <button
@@ -116,8 +134,18 @@ export default function App() {
                 onClick={goHome}
                 className="border-muted rounded-button text-label min-h-12 shrink-0 border px-4 py-2 whitespace-nowrap"
               >
-                Tableau de bord
+                Accueil
               </button>
+            </nav>
+          )}
+          {phase === 'home' && route === 'progression' && (
+            <nav>
+              <a
+                href={hashFor('accueil')}
+                className="border-muted rounded-button text-label inline-flex min-h-12 shrink-0 items-center border px-4 py-2 whitespace-nowrap"
+              >
+                Accueil
+              </a>
             </nav>
           )}
         </div>
@@ -150,8 +178,8 @@ export default function App() {
           </p>
         )}
 
-        {phase === 'home' && (
-          <Dashboard
+        {phase === 'home' && route === 'accueil' && (
+          <Home
             cards={cards}
             scheduler={scheduler}
             sessionLimit={DEFAULT_SESSION_LIMIT}
@@ -160,6 +188,8 @@ export default function App() {
             backup={<Backup scheduler={scheduler} onImported={reload} />}
           />
         )}
+
+        {phase === 'home' && route === 'progression' && <Progress cards={cards} />}
 
         {phase === 'study' && (
           <StudyView
@@ -182,7 +212,7 @@ export default function App() {
               onClick={goHome}
               className="border-muted rounded-button text-label mt-8 min-h-12 border px-5 py-2 font-semibold"
             >
-              Retour au tableau de bord
+              Retour à l’accueil
             </button>
           </section>
         )}
