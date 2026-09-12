@@ -120,7 +120,10 @@ describe('the compiled stylesheet', () => {
    * Two things this cannot do, both measured rather than assumed:
    *   - it cannot see the class leave the component, because the name written
    *     in Dashboard.test.tsx is candidate enough on its own to keep the rule
-   *     in the output. Stripping the component alone still passes.
+   *     in the output. Stripping the component alone still passes. That file
+   *     has to spell it — checking the token is its whole job — so this is the
+   *     floor. Dashboard.tsx no longer spells it in prose, which was a second
+   *     source of the same false green.
    *   - it cannot see another rule override this one. Only a browser can, and
    *     CI has none — the same hole as issue #16.
    */
