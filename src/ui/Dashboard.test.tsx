@@ -93,6 +93,24 @@ describe('Dashboard', () => {
       expect(within(table).getByRole('columnheader', { name: 'Non vues' })).toBeInTheDocument()
       expect(within(table).queryByRole('columnheader', { name: 'Cartes' })).not.toBeInTheDocument()
     })
+
+    /**
+     * jsdom ne met rien en page : ce test ne peut pas voir un en-tête de
+     * travers, il ne peut que vérifier la déclaration qui l'empêche. La preuve
+     * du défaut est ailleurs — mesurée dans un vrai navigateur à 390 px, où le
+     * bas de « Thème » était 10,5 px au-dessus de celui de « En cours » parce
+     * que les libellés courts flottaient au milieu des longs repliés.
+     */
+    it('sits every column header on the same baseline', () => {
+      setup([reviewed(makeCard('a')), makeCard('b', 'sciences')])
+
+      const table = screen.getByRole('table')
+      const headers = within(table).getAllByRole('columnheader')
+      expect(headers).toHaveLength(5)
+      for (const header of headers) {
+        expect(header.className).toContain('align-bottom')
+      }
+    })
   })
 
   it('starts a session on request', async () => {
