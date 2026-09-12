@@ -136,25 +136,32 @@ export function Dashboard({
             ? 'Répartition des cartes par thème : acquises, en cours, à revoir, non vues'
             : 'Nombre de cartes par thème'}
         </caption>
-        <thead>
+        {/*
+          `align-bottom` : à 390 px, « En cours », « À revoir » et « Non vues »
+          passent sur deux lignes tandis que « Thème » et « Acquises » tiennent
+          sur une. Centrés par défaut, les courts flottaient entre les deux
+          lignes des longs et la rangée d'en-têtes se lisait de travers. Posés
+          sur la même ligne de base, les cinq libellés s'alignent.
+        */}
+        <thead className="align-bottom">
           <tr className="text-muted text-label">
-            <th scope="col" className="py-3 pr-4 font-semibold">
+            <th scope="col" className="py-3 pr-4 align-bottom font-semibold">
               Thème
             </th>
             {started && (
               <>
-                <th scope="col" className="py-3 pr-4 text-right font-semibold">
+                <th scope="col" className="py-3 pr-4 text-right align-bottom font-semibold">
                   Acquises
                 </th>
-                <th scope="col" className="py-3 pr-4 text-right font-semibold">
+                <th scope="col" className="py-3 pr-4 text-right align-bottom font-semibold">
                   En cours
                 </th>
-                <th scope="col" className="py-3 pr-4 text-right font-semibold">
+                <th scope="col" className="py-3 pr-4 text-right align-bottom font-semibold">
                   À revoir
                 </th>
               </>
             )}
-            <th scope="col" className="py-3 text-right font-semibold">
+            <th scope="col" className="py-3 text-right align-bottom font-semibold">
               {started ? 'Non vues' : 'Cartes'}
             </th>
           </tr>
