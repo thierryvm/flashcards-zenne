@@ -55,6 +55,8 @@ export function Backup({ scheduler, onImported }: BackupProps) {
   const [pending, setPending] = useState<Pending>(null)
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
+  /** Which file selection is the current one; older reads drop their result. */
+  const selectionRef = useRef(0)
 
   async function exportJournal() {
     try {
@@ -107,11 +109,21 @@ export function Backup({ scheduler, onImported }: BackupProps) {
   }
 
   async function describeFile(file: File) {
+    // Reading a file and the local journal are both asynchronous, so two
+    // selections can finish out of order. Without this, an older read could
+    // land after a newer one and leave a summary describing a file the control
+    // no longer names — and "Fusionner" would then merge the wrong one.
+    const selection = (selectionRef.current += 1)
+    const stale = () => selection !== selectionRef.current
+
     try {
       const reviews = parseJournal(await file.text())
-      setPending({ reviews, summary: summariseJournal(reviews, await loadReviews()) })
+      const kept = await loadReviews()
+      if (stale()) return
+      setPending({ reviews, summary: summariseJournal(reviews, kept) })
       setOutcome(null)
     } catch (error) {
+      if (stale()) return
       setPending(null)
       clearChosenFile()
       setOutcome({
