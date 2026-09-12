@@ -137,11 +137,16 @@ export function Dashboard({
             : 'Nombre de cartes par thème'}
         </caption>
         {/*
-          `align-bottom` : à 390 px, « En cours », « À revoir » et « Non vues »
-          passent sur deux lignes tandis que « Thème » et « Acquises » tiennent
-          sur une. Centrés par défaut, les courts flottaient entre les deux
-          lignes des longs et la rangée d'en-têtes se lisait de travers. Posés
-          sur la même ligne de base, les cinq libellés s'alignent.
+          À 390 px, « En cours », « À revoir » et « Non vues » passent sur deux
+          lignes tandis que « Thème » et « Acquises » tiennent sur une. Centrés
+          par défaut, les courts flottaient entre les deux lignes des longs et
+          la rangée d'en-têtes se lisait de travers. Posés sur la même ligne de
+          base, les cinq libellés s'alignent.
+
+          Le nom de l'utilitaire n'est pas épelé ici : Tailwind lit les
+          commentaires comme du texte brut, et le mentionner suffirait à faire
+          émettre la règle que `tokens.test.ts` cherche dans le CSS produit.
+          Le test resterait vert après que ces classes aient disparu.
         */}
         <thead className="align-bottom">
           <tr className="text-muted text-label">
