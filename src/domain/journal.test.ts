@@ -7,6 +7,7 @@ import {
   parseJournal,
   replayJournal,
   serialiseJournal,
+  summariseJournal,
 } from './journal'
 import { createScheduler, Rating } from './scheduler'
 import type { ReviewEvent } from './types'
@@ -73,10 +74,60 @@ describe('parseJournal', () => {
     expect(() => parseJournal(text)).toThrow(message)
   })
 
+  /*
+   * Measured against the real parser before deciding what to guard. Twelve
+   * shapes of wrong file were already refused; three got through, and two of
+   * those were defects — an empty journal, and a review dated in the year 3999.
+   * A merge cannot be undone, so a corrupt date would have poisoned a card's
+   * schedule for good.
+   */
+  it.each([
+    ['un fichier vide', ''],
+    ['des espaces', '   \n  '],
+    ['du HTML enregistré par erreur', '<!doctype html><html><body>404</body></html>'],
+    ['un tableau nu', '[1,2,3]'],
+    ['null', 'null'],
+    ['un nombre', '42'],
+  ])('refuses %s', (_, text) => {
+    expect(() => parseJournal(text)).toThrow(JournalFileError)
+  })
+
+  it('refuses a file whose journal is empty, rather than importing nothing', () => {
+    const text = JSON.stringify({ format: JOURNAL_FORMAT, version: JOURNAL_VERSION, reviews: [] })
+
+    expect(() => parseJournal(text)).toThrow(/aucune révision/)
+  })
+
+  it('refuses a date that cannot be a review, and says the file is damaged', () => {
+    const text = JSON.stringify({
+      format: JOURNAL_FORMAT,
+      version: JOURNAL_VERSION,
+      reviews: [{ cardId: 'a', reviewedAt: '3999-01-01T00:00:00.000Z', grade: Rating.Good }],
+    })
+
+    expect(() => parseJournal(text)).toThrow(/abîmé/)
+  })
+
+  it('tolerates a device whose clock runs slightly ahead', () => {
+    const inAnHour = new Date(Date.now() + 60 * 60 * 1000)
+    const text = JSON.stringify({
+      format: JOURNAL_FORMAT,
+      version: JOURNAL_VERSION,
+      reviews: [{ cardId: 'a', reviewedAt: inAnHour.toISOString(), grade: Rating.Good }],
+    })
+
+    expect(parseJournal(text)).toHaveLength(1)
+  })
+
   it.each([
     ['sans carte', { reviewedAt: T0.toISOString(), grade: Rating.Good }, /n'indique pas de carte/],
     ['avec une date invalide', { cardId: 'a', reviewedAt: 'hier', grade: Rating.Good }, /date/],
     ['avec une note inconnue', { cardId: 'a', reviewedAt: T0.toISOString(), grade: 9 }, /note/],
+    [
+      'avec une explication illisible',
+      { cardId: 'a', reviewedAt: T0.toISOString(), grade: Rating.Good, note: { x: 1 } },
+      /illisible/,
+    ],
   ])('refuses a review %s, and says which one', (_, entry, message) => {
     const text = JSON.stringify({
       format: JOURNAL_FORMAT,
@@ -133,6 +184,38 @@ describe('mergeJournals', () => {
     )
 
     expect(merged).toHaveLength(2)
+  })
+})
+
+describe('summariseJournal', () => {
+  it('describes what a file would bring, before anything is written', () => {
+    const summary = summariseJournal([
+      review({ cardId: 'carte-a', reviewedAt: minutes(1) }),
+      review({ cardId: 'carte-a', reviewedAt: minutes(30) }),
+      review({ cardId: 'carte-b', reviewedAt: minutes(90) }),
+    ])
+
+    expect(summary).toEqual({
+      reviews: 3,
+      cards: 2,
+      from: minutes(1),
+      to: minutes(90),
+      fresh: 3,
+    })
+  })
+
+  it('counts only what this device does not already hold', () => {
+    const shared = review({ reviewedAt: minutes(1) })
+
+    const summary = summariseJournal([shared, review({ reviewedAt: minutes(9) })], [shared])
+
+    expect(summary.fresh).toBe(1)
+  })
+
+  it('does not count a duplicate inside the file twice', () => {
+    const twice = review({ reviewedAt: minutes(1) })
+
+    expect(summariseJournal([twice, twice]).fresh).toBe(1)
   })
 })
 
