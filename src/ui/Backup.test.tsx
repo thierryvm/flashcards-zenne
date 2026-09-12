@@ -28,6 +28,13 @@ async function choose(file: File) {
   await user.upload(screen.getByLabelText('Importer un fichier'), file)
 }
 
+/** Choosing a file only describes it now; merging is a second, deliberate act. */
+async function chooseAndMerge(file: File) {
+  const user = userEvent.setup()
+  await choose(file)
+  await user.click(await screen.findByRole('button', { name: 'Fusionner' }))
+}
+
 beforeEach(async () => {
   await resetProgress()
 })
@@ -58,11 +65,76 @@ describe('Backup export', () => {
   })
 })
 
+/*
+ * A merge cannot be undone. Not overwriting is not the same as not destroying:
+ * a stale backup or someone else's journal goes in and nothing takes it out
+ * again. Idempotence only says that importing the *right* file twice is
+ * harmless — it says nothing about the wrong one. So the file is read and
+ * described first, and merging is a separate, deliberate act.
+ */
+describe('Backup confirmation', () => {
+  it('describes the file instead of merging it straight away', async () => {
+    setup()
+
+    await choose(
+      journalFile([
+        { cardId: 'carte-a', reviewedAt: minutes(5), grade: Rating.Good },
+        { cardId: 'carte-b', reviewedAt: minutes(9), grade: Rating.Again },
+      ]),
+    )
+
+    const summary = await screen.findByRole('group', { name: /Ce que contient ce fichier/ })
+    expect(summary).toHaveTextContent(/2 révisions, sur 2 cartes/)
+    expect(summary).toHaveTextContent(/2 révisions que cet appareil n’a pas/)
+    expect(summary).toHaveTextContent(/ne peut pas être annulé/)
+    // Nothing written until someone says so.
+    expect(await loadReviews()).toEqual([])
+  })
+
+  it('names the period the file covers', async () => {
+    setup()
+
+    await choose(
+      journalFile([
+        { cardId: 'carte-a', reviewedAt: new Date('2026-05-03T09:00:00Z'), grade: Rating.Good },
+        { cardId: 'carte-a', reviewedAt: new Date('2026-05-09T09:00:00Z'), grade: Rating.Good },
+      ]),
+    )
+
+    expect(await screen.findByRole('group')).toHaveTextContent(/du 3 mai 2026 au 9 mai 2026/)
+  })
+
+  it('says when a file brings nothing new, before merging it', async () => {
+    const already: ReviewEvent[] = [
+      { cardId: 'carte-b', reviewedAt: minutes(5), grade: Rating.Good },
+    ]
+    setup()
+    await chooseAndMerge(journalFile(already))
+
+    await choose(journalFile(already))
+
+    expect(await screen.findByRole('group')).toHaveTextContent(
+      /aucune que cet appareil ne connaisse déjà/,
+    )
+  })
+
+  it('writes nothing when the learner cancels', async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await choose(journalFile([{ cardId: 'carte-b', reviewedAt: minutes(5), grade: Rating.Good }]))
+    await user.click(await screen.findByRole('button', { name: 'Annuler' }))
+
+    expect(screen.queryByRole('group')).not.toBeInTheDocument()
+    expect(await loadReviews()).toEqual([])
+  })
+})
+
 describe('Backup import', () => {
   it('folds in reviews from another device', async () => {
     const { onImported } = setup()
 
-    await choose(
+    await chooseAndMerge(
       journalFile([
         { cardId: 'carte-b', reviewedAt: minutes(5), grade: Rating.Good },
         { cardId: 'carte-b', reviewedAt: minutes(9), grade: Rating.Again },
@@ -80,10 +152,10 @@ describe('Backup import', () => {
    */
   it('says plainly that a second import changed nothing', async () => {
     setup()
-    const file = journalFile([{ cardId: 'carte-b', reviewedAt: minutes(5), grade: Rating.Good }])
+    const entry: ReviewEvent = { cardId: 'carte-b', reviewedAt: minutes(5), grade: Rating.Good }
 
-    await choose(file)
-    await choose(journalFile([{ cardId: 'carte-b', reviewedAt: minutes(5), grade: Rating.Good }]))
+    await chooseAndMerge(journalFile([entry]))
+    await chooseAndMerge(journalFile([entry]))
 
     expect(await screen.findByRole('status')).toHaveTextContent(/Rien de nouveau/)
     expect(await loadReviews()).toHaveLength(1)
